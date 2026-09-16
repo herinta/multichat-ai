@@ -51,7 +51,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
-      <body className="min-h-screen flex flex-col font-sans bg-gray-50 text-gray-900 overflow-hidden select-none">
+      <body className="min-h-screen flex flex-col font-sans bg-gray-50 text-gray-900 antialiased">
         <ToastProvider>
           {children}
         </ToastProvider>

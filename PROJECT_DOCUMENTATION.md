@@ -216,6 +216,8 @@ Tabel-tabel yang aktif digunakan di Supabase:
    * Tabel `messages` dan `types/chat.ts` mendukung `'USER' | 'AI' | 'SYSTEM'`. Kartu sesi telepon menggunakan `SYSTEM` agar tidak dianggap pesan dari user ataupun karakter agen tertentu.
 8. **Audio Autoplay di iOS Safari / Android**:
    * Pemicuan `speechSynthesis.speak` di mobile harus memiliki warmup / unlock di dalam event klik langsung (*user gesture*).
+9. **Body Overflow & Window Scroll**:
+   * Jangan pernah menambahkan `overflow-hidden` ke tag `<body>` di `app/layout.tsx` karena akan mematikan scrolling pada seluruh halaman panjang seperti Landing Page. Cukup pasang `h-screen overflow-hidden` secara lokal di komponen `DashboardClient`.
 
 ---
 
