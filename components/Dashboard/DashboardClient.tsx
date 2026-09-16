@@ -354,13 +354,13 @@ export function DashboardClient({ initialUser }: { initialUser: any }) {
            const existing = myContacts.filter(c => selectedContactIds.includes(c.id));
            finalAgents.push(...existing);
 
-           for (const nm of newMembers) {
-             const system_prompt = `You are ${nm.name}. Background/Personality: ${nm.characteristic}. Respond naturally based on your personality.`;
-             const newAgent = await handleCreateContact(nm.name, system_prompt, nm.avatar_url);
-             if (newAgent) {
-               finalAgents.push(newAgent);
-             }
-           }
+            for (const nm of newMembers) {
+              const system_prompt = `Karakter: ${nm.name}. Kepribadian & Latar Belakang: ${nm.characteristic}. Berinteraksi secara konsisten, manusiawi, ekspresif, dan tidak kaku seperti robot asisten.`;
+              const newAgent = await handleCreateContact(nm.name, system_prompt, nm.avatar_url);
+              if (newAgent) {
+                finalAgents.push(newAgent);
+              }
+            }
 
            if (finalAgents.length === 0) {
               toast.error("Gagal menambahkan anggota. Coba lagi.");

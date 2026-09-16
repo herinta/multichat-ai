@@ -207,6 +207,20 @@ Tabel-tabel yang aktif digunakan di Supabase:
   * **Web Speech Synthesis (`id-ID`)**: Pelafalan lisan otomatis dengan deteksi suara bahasa Indonesia di browser serta modulasi pitch berbeda untuk vokal cowok (0.9) dan cewek (1.15).
   * Tombol dinamis multi-state: *TES SUARA DENGAN GEMINI*, *Gemini Merangkai Kata...*, dan *Hentikan Suara Karakter*.
 
+### J. Arsitektur Prompt AI High-EQ & Dynamic Voice
+* **Identitas Karakter Sebagai Prioritas Utama (`selectedAgent.system_prompt`)**:
+  * Mengeliminasi pembatasan kaku terdahulu yang memaksa seluruh karakter mengetik huruf kecil (*lowercase only*) dan melarang tanda baca, yang sebelumnya merusak karakter-karakter unik (seperti mentor, dosen, karakter anime elegan, dsb).
+  * Kepribadian, latar belakang, dan gaya bicara asli karakter kini menjadi acuan nomor satu.
+* **Kedalaman Respons Adaptif (Adaptive Depth)**:
+  * **Chit-chat santai**: AI membalas secara ringkas, luwes, dan natural (1–3 kalimat).
+  * **Pertanyaan mendalam, curhat, storytelling, atau coding**: AI memberikan penjelasan berbobot, suportif, dan edukatif tanpa memotong jawaban secara artifisial.
+* **Format Markdown & Syntax Highlighting Aktif**:
+  * Memanfaatkan dukungan `react-markdown` dan `react-syntax-highlighter` di UI chat. Ketika user meminta kode pemrograman, panduan langkah-langkah, atau resep, AI menyertakan blok kode dengan tag bahasa (` ```python `, dsb) dan bullet points rapi.
+* **Spoken-Optimized Prompt untuk Voice Call (`/api/call/turn`)**:
+  * Dirancang khusus untuk modulasi Text-to-Speech (TTS): membuang simbol markdown mentah dan emoji yang dapat mengacaukan lafal audio, menggantinya dengan intonasi jeda dan kata sambung lisan yang hidup (*"eh", "wah", "santai aja", "nah gitu" *).
+* **Proactive Reach-out Cerdas (`/api/chat/proactive`)**:
+  * Mengutamakan tindak lanjut (*follow-up*) terhadap janji/agenda nyata dari memori user, atau celetukan santai spontan yang autentik tanpa embel-embel kalimat asisten klise (*"Ada yang bisa saya bantu?"*).
+
 ---
 
 ## 5. Gotchas & Catatan Teknis Kritis (Jangan Diulangi!)

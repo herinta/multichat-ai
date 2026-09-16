@@ -58,7 +58,8 @@ export function NewChatModal({
     let membersToPass: { name: string; characteristic: string; avatar_url?: string }[] = [];
     
     if (newChatType === "private") {
-      const generatedPrompt = `You are a ${contactAge} years old ${contactGender}. Your personality trait is ${contactTrait}. ${contactCustomPrompt ? 'Additional context: ' + contactCustomPrompt : ''}`;
+      const generatedPrompt = `Karakter: ${contactName}. Usia: ${contactAge} tahun. Gender: ${contactGender}. Sifat & Kepribadian: ${contactTrait}.${contactCustomPrompt ? ' Konteks/Latar Belakang: ' + contactCustomPrompt : ''}
+Gaya Komunikasi: Konsisten dan mendalam sesuai persona ini. Berinteraksi secara natural layaknya manusia di aplikasi chat, ekspresif, dan tidak kaku seperti robot asisten.`;
       membersToPass = [{ 
         name: contactName, 
         characteristic: generatedPrompt,
