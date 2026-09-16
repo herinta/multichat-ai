@@ -195,6 +195,18 @@ Tabel-tabel yang aktif digunakan di Supabase:
   * Wallpaper digital cyber glass realm beresolusi tinggi (`/auth-bg.jpg`) yang dihasilkan khusus untuk Multi-AI dengan tema deep royal blue, luminous cyan circuits, dan arsitektur kaca transparan.
   * Kartu formulir Masuk dan Daftar mengambang di atasnya dengan efek *frosted glassmorphism* transparan ultra-elegan (`backdrop-blur-2xl bg-white/95`) dan ambient vignette untuk menjaga keterbacaan teks.
 
+### I. Gemini Voice Preview Simulator di Landing Page
+* **Public Endpoint `/api/voice-preview`**:
+  * Menggunakan Google Gemini API (`gemini-3.5-flash-lite`) untuk merangkai dialog lisan bahasa Indonesia yang natural, hangat, dan ekspresif tanpa memerlukan login pengguna.
+  * Menerima parameter karakter: `gender` ('Male' | 'Female'), `empathy` (0-100%), dan `humor` (0-100%).
+  * Prompt dirancang khusus agar Gemini menghasilkan 1 kalimat sapaan lisan (12-14 kata) santai/gaul tanpa markdown, tanpa quotes, dan tanpa kata pengantar.
+* **Simulator Karakter Interaktif (`LandingPage.tsx`)**:
+  * Slider Tingkat Empati dan Sense of Humor dengan toggle vokal Laki-laki / Perempuan.
+  * Menampilkan kotak respons dialog Gemini (`Gemini 3.5 Spoken Greeting`) lengkap dengan kuotasi dialog dan tombol putar ulang (*Replay*).
+  * **Animated Audio Wave Visualizer**: 4 bar visualisasi gelombang suara berombak secara realtime saat vokal sedang bersuara.
+  * **Web Speech Synthesis (`id-ID`)**: Pelafalan lisan otomatis dengan deteksi suara bahasa Indonesia di browser serta modulasi pitch berbeda untuk vokal cowok (0.9) dan cewek (1.15).
+  * Tombol dinamis multi-state: *TES SUARA DENGAN GEMINI*, *Gemini Merangkai Kata...*, dan *Hentikan Suara Karakter*.
+
 ---
 
 ## 5. Gotchas & Catatan Teknis Kritis (Jangan Diulangi!)

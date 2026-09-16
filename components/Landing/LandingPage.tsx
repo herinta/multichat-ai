@@ -17,7 +17,11 @@ import {
   Check,
   Layers,
   ChevronRight,
-  Volume2
+  Volume2,
+  VolumeX,
+  RotateCcw,
+  Loader2,
+  Bot
 } from 'lucide-react';
 import type { Variants } from 'motion/react';
 
@@ -163,25 +167,68 @@ export function LandingPage({
   const [humor, setHumor] = useState(65);
   const [gender, setGender] = useState('Female');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [previewText, setPreviewText] = useState<string | null>(null);
 
-  const tryPersona = () => {
-    if (isGenerating) return;
-    setIsGenerating(true);
+  const speakText = (text: string, voiceGender: string) => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const text = gender === 'Male'
-        ? "Halo bro! Santai aja kali, gue siap nemenin ngobrol kapan aja."
-        : "Hai! Senang banget bisa ketemu kamu. Mau ngobrolin apa hari ini?";
-      
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'id-ID';
-      utterance.pitch = gender === 'Male' ? 0.9 : 1.15;
-      utterance.rate = 1.0;
-      utterance.onend = () => setIsGenerating(false);
-      utterance.onerror = () => setIsGenerating(false);
+      utterance.pitch = voiceGender === 'Male' ? 0.9 : 1.15;
+      utterance.rate = 0.98;
+
+      // Select Indonesian voice if supported in browser
+      const voices = window.speechSynthesis.getVoices();
+      const idVoice = voices.find(v => v.lang.startsWith('id') || v.lang.includes('ID') || v.lang.toLowerCase().includes('indonesia'));
+      if (idVoice) {
+        utterance.voice = idVoice;
+      }
+
+      utterance.onstart = () => setIsSpeaking(true);
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
       window.speechSynthesis.speak(utterance);
-    } else {
-      setTimeout(() => setIsGenerating(false), 1500);
+    }
+  };
+
+  const stopSpeaking = () => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+  };
+
+  const tryPersona = async () => {
+    if (isGenerating) return;
+    if (isSpeaking) {
+      stopSpeaking();
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const res = await fetch('/api/voice-preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gender, empathy, humor }),
+      });
+      const data = await res.json();
+      const textToSpeak = data?.text || (gender === 'Male'
+        ? "Halo bro! Santai aja kali, gue siap nemenin ngobrol kapan aja."
+        : "Hai! Senang banget bisa ketemu kamu. Mau ngobrolin apa hari ini?");
+
+      setPreviewText(textToSpeak);
+      speakText(textToSpeak, gender);
+    } catch (err) {
+      console.error('Failed to generate voice preview via Gemini:', err);
+      const fallback = gender === 'Male'
+        ? "Halo bro! Santai aja kali, gue siap nemenin ngobrol kapan aja."
+        : "Hai! Senang banget bisa ketemu kamu. Mau ngobrolin apa hari ini?";
+      setPreviewText(fallback);
+      speakText(fallback, gender);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -510,13 +557,12 @@ export function LandingPage({
             <GlassCard className="p-6 sm:p-8">
               <div className="flex items-center justify-between pb-4 mb-6 border-b border-blue-100">
                 <div className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-600">Simulator Karakter</span>
+                  <Sparkles className="w-4 h-4 text-blue-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-700">Simulator Suara Karakter (Gemini AI)</span>
                 </div>
-                <div className="flex gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-blue-400" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-indigo-400" />
+                <div className="flex items-center gap-1.5 bg-blue-500/10 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                  Gemini 3.5 Flash
                 </div>
               </div>
 
@@ -528,14 +574,17 @@ export function LandingPage({
                     {['Male', 'Female'].map((g) => (
                       <button
                         key={g}
-                        onClick={() => setGender(g)}
+                        onClick={() => {
+                          setGender(g);
+                          if (isSpeaking) stopSpeaking();
+                        }}
                         className={`py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                           gender === g 
                             ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25' 
                             : 'bg-white/60 text-gray-600 border border-blue-100 hover:bg-white'
                         }`}
                       >
-                        {g === 'Male' ? 'Laki-laki' : 'Perempuan'}
+                        {g === 'Male' ? 'Laki-laki (Cowok)' : 'Perempuan (Cewek)'}
                       </button>
                     ))}
                   </div>
@@ -575,21 +624,90 @@ export function LandingPage({
 
                 {/* Trait tags */}
                 <div className="grid grid-cols-3 gap-2 pt-1">
-                  {['Santai', 'Cerewet', 'Perhatian'].map((tag) => (
+                  {['Santai & Akrab', 'Respon Real-time', 'Gemini Native'].map((tag) => (
                     <div key={tag} className="bg-blue-500/10 text-blue-700 border border-blue-200/60 py-1.5 rounded-lg text-center text-[11px] font-bold">
                       {tag}
                     </div>
                   ))}
                 </div>
 
+                {/* Gemini Spoken Line Display */}
+                {previewText && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-cyan-500/10 border border-blue-200 shadow-xs"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex h-2 w-2 relative">
+                          {isSpeaking && (
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                          )}
+                          <span className={`relative inline-flex rounded-full h-2 w-2 ${isSpeaking ? 'bg-blue-600' : 'bg-gray-400'}`}></span>
+                        </span>
+                        <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
+                          <Bot className="w-3.5 h-3.5 text-blue-600" />
+                          Gemini 3.5 Spoken Greeting
+                        </span>
+                      </div>
+                      
+                      {/* Audio visualizer wave */}
+                      {isSpeaking && (
+                        <div className="flex items-end gap-1 h-3.5" title="Sedang memutar suara...">
+                          <span className="w-1 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s] h-3"></span>
+                          <span className="w-1 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.15s] h-4"></span>
+                          <span className="w-1 bg-cyan-600 rounded-full animate-bounce h-2.5"></span>
+                          <span className="w-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.25s] h-3.5"></span>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-sm font-semibold text-gray-800 italic leading-snug">
+                      &ldquo;{previewText}&rdquo;
+                    </p>
+
+                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-blue-200/60 text-[10px] text-gray-600">
+                      <span>{gender === 'Male' ? 'Vokal Laki-laki' : 'Vokal Perempuan'} • Empati {empathy}% • Humor {humor}%</span>
+                      {!isGenerating && (
+                        <button
+                          type="button"
+                          onClick={() => speakText(previewText, gender)}
+                          className="text-blue-700 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3 h-3" /> Putar Ulang
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Try Persona Audio Button */}
                 <button 
                   onClick={tryPersona}
                   disabled={isGenerating}
-                  className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700 transition-all active:scale-95"
+                  className={`w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer ${
+                    isSpeaking
+                      ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/30'
+                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/30'
+                  }`}
                 >
-                  <Sparkles className="w-4 h-4" />
-                  {isGenerating ? 'Mendengarkan Suara...' : 'TES SUARA KARAKTER SEKARANG'}
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Gemini Merangkai Kata...</span>
+                    </>
+                  ) : isSpeaking ? (
+                    <>
+                      <VolumeX className="w-4 h-4" />
+                      <span>Hentikan Suara Karakter</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>TES SUARA DENGAN GEMINI</span>
+                    </>
+                  )}
                 </button>
               </div>
             </GlassCard>
