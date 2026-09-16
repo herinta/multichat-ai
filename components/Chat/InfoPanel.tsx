@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Room, Agent, UserPersona } from "@/types/chat";
 import { Button } from "@/components/Modern/Button";
 import { Modal } from "@/components/Modern/Modal";
+import { useToast } from "@/components/Modern/Toast";
 
 interface InfoPanelProps {
   activeRoom: Room;
@@ -13,6 +14,7 @@ interface InfoPanelProps {
   onUpdateTheme: (theme: string) => void;
   onUpdateAgent: (agentId: string, updates: Partial<Agent>) => void;
   onUpdateRoomPersona: (personaId: string | null) => void;
+  onClearMessages?: () => void;
 }
 
 export function InfoPanel({
@@ -24,8 +26,10 @@ export function InfoPanel({
   onDeleteRoom,
   onUpdateTheme,
   onUpdateAgent,
-  onUpdateRoomPersona
+  onUpdateRoomPersona,
+  onClearMessages
 }: InfoPanelProps) {
+  const toast = useToast();
   const [isAddingInfoMember, setIsAddingInfoMember] = useState(false);
   const [newInfoSelectedContactId, setNewInfoSelectedContactId] = useState("");
 
@@ -33,6 +37,7 @@ export function InfoPanel({
   const [editName, setEditName] = useState("");
   const [editPrompt, setEditPrompt] = useState("");
   const [editAvatarUrl, setEditAvatarUrl] = useState("");
+  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +63,28 @@ export function InfoPanel({
       avatar_url: editAvatarUrl
     });
     setEditingAgent(null);
+  };
+
+  const handleGenerateAvatar = async () => {
+    if (!editName) return;
+    setIsGeneratingAvatar(true);
+    const prompt = `${editName}, ${editPrompt ? editPrompt.slice(0, 80) : 'friendly character'}, anime style, portrait, colorful`;
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=200&height=200&nologo=true&seed=${Date.now()}`;
+    // Pre-load to confirm image is accessible
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => reject();
+        img.src = url;
+        setTimeout(() => resolve(), 8000); // fallback after 8s
+      });
+      setEditAvatarUrl(url);
+    } catch {
+      setEditAvatarUrl(url); // set anyway
+    } finally {
+      setIsGeneratingAvatar(false);
+    }
   };
 
   return (
@@ -185,11 +212,48 @@ export function InfoPanel({
             </div>
           )}
 
-          <div className="mt-6 pt-6 border-t border-gray-100">
+          <div className="mt-6 pt-6 border-t border-gray-100 flex flex-col gap-2">
+            {onClearMessages && (
+              <Button 
+                variant="ghost" 
+                className="w-full text-amber-600 hover:bg-amber-50 hover:text-amber-700 font-semibold justify-center cursor-pointer"
+                onClick={() => {
+                  toast.confirm({
+                    title: "Bersihkan Riwayat Chat",
+                    message: "Apakah Anda yakin ingin menghapus semua riwayat pesan di room chat ini? (Room dan karakter tidak akan terhapus)",
+                    confirmText: "Ya, Bersihkan",
+                    cancelText: "Batal",
+                    variant: "warning",
+                    onConfirm: () => {
+                      onClearMessages();
+                      toast.success("Riwayat pesan berhasil dibersihkan!");
+                    }
+                  });
+                }}
+              >
+                <svg className="w-4 h-4 mr-2 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Bersihkan Riwayat Chat
+              </Button>
+            )}
+
             <Button 
               variant="ghost" 
-              className="w-full text-red-500 hover:bg-red-50 hover:text-red-600 font-bold justify-center"
-              onClick={onDeleteRoom}
+              className="w-full text-red-500 hover:bg-red-50 hover:text-red-600 font-bold justify-center cursor-pointer"
+              onClick={() => {
+                toast.confirm({
+                  title: "Hapus Ruang Chat",
+                  message: `Apakah Anda yakin ingin menghapus chat "${activeRoom.title}" secara permanen?`,
+                  confirmText: "Hapus Chat",
+                  cancelText: "Batal",
+                  variant: "danger",
+                  onConfirm: () => {
+                    onDeleteRoom();
+                    toast.success("Ruang chat berhasil dihapus.");
+                  }
+                });
+              }}
             >
               <svg className="w-4 h-4 mr-2 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -215,13 +279,26 @@ export function InfoPanel({
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">Avatar URL (Optional)</label>
-            <input 
-              type="url" 
-              value={editAvatarUrl}
-              onChange={e => setEditAvatarUrl(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
-              placeholder="https://example.com/avatar.jpg"
-            />
+            <div className="flex gap-2 mb-2">
+              <input 
+                type="url" 
+                value={editAvatarUrl}
+                onChange={e => setEditAvatarUrl(e.target.value)}
+                className="flex-1 bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
+                placeholder="https://example.com/avatar.jpg"
+              />
+              <button
+                type="button"
+                onClick={handleGenerateAvatar}
+                disabled={isGeneratingAvatar}
+                className="px-3 py-2 text-xs font-semibold bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg border border-purple-200 transition-all disabled:opacity-60 whitespace-nowrap"
+              >
+                {isGeneratingAvatar ? '⏳ Generating...' : '✨ Generate'}
+              </button>
+            </div>
+            {editAvatarUrl && (
+              <img src={editAvatarUrl} alt="Avatar preview" className="w-16 h-16 rounded-full object-cover border-2 border-purple-200 shadow-sm" />
+            )}
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1">System Prompt / Characteristic</label>

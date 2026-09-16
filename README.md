@@ -4,12 +4,22 @@ A modern, dynamic Next.js web application that enables users to interact with mu
 
 ## Features
 
-- **Multi-Agent Group Chats**: Chat with multiple AI personalities in a single room.
-- **Dynamic AI Routing**: The system intelligently routes messages to specific agents based on mentions (e.g., `@AgentName`) or context.
-- **Cross-Room Memory**: Agents possess global memory and can recall interactions with users across different chat rooms.
-- **Custom Personas**: Agents are configured with specific system prompts and a default "casual Indonesian slang" persona.
-- **Authentication & Database**: Powered by Supabase for secure user authentication, room management, and message history storage.
-- **Modern UI**: Built with React 19, Tailwind CSS 4, and custom components (`Modal`, `Button`, etc.).
+- **Modern Blue Landing Page**: Stunning blue glassmorphism landing page adapted from Dreamweave with live character simulator, voice sample previews, interactive mockups, and feature showcases.
+- **Strict Route Protection & Seamless Log Out**: Unauthenticated visitors can only view the landing page and login screen; dashboard access is strictly protected until authenticated. One-click log out available in Sidebar, Profile, and Settings Modal.
+- **Voice Call (1-on-1 & Group Calls)**: Real-time Discord/FaceTime-style voice calls with AI characters, featuring speech recognition, multi-agent turn-taking, inter-AI spoken banter, active speaker glow animations, live floating subtitles, and automated post-call memory consolidation to `rooms.memory`.
+- **PWA & Add to Home Screen**: Installable as a native-feeling mobile/desktop app with custom icons, standalone UI, and iOS/Android support.
+- **Push & Background Notifications**: Native notifications when an AI agent replies or initiates proactive chat while the tab is hidden or inactive.
+- **Multi-Agent Group Chats**: Chat with multiple AI personalities in a single room with inter-AI auto replies.
+- **AI Chat Duluan (Proactive Messaging)**: Characters proactively reach out to follow up on past plans (exams, interviews) or send natural casual thoughts.
+- **Anti-Prompt Injection ("Manusia Bingung")**: Dual-layer defense where AI reacts like a baffled, teasing human friend to jailbreak attempts.
+- **Explore & Character Marketplace**: Publish your AI personas, explore community agents, and like/clone them.
+- **Dynamic AI Routing & Mentions**: Route messages to specific agents with `@AgentName` or intelligent context matching.
+- **Cross-Room & Long-Term Memory**: Agents recall conversations across rooms, with automatic memory consolidation (>3 days).
+- **Rich Media & Tools**: Markdown rendering, syntax highlighting, voice input, `/imagine` AI image generator, chat export to `.txt`.
+- **Authentication & Realtime**: Powered by Supabase Auth, PostgreSQL, and Supabase Realtime for instant message and unread badge sync.
+- **Modern UI**: Built with React 19, Tailwind CSS 4, multiple color themes, and custom components.
+
+> 📖 **Full Documentation & Handover Guide**: See [PROJECT_DOCUMENTATION.md](./PROJECT_DOCUMENTATION.md) for complete technical architecture, database schema, bug fixes, and development backlog.
 
 ## Tech Stack
 

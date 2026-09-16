@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserPersona, Agent, Room } from "@/types/chat";
 import { Button } from "@/components/Modern/Button";
 import { Modal } from "@/components/Modern/Modal";
 import { ContactsView } from "./ContactsView";
+import { createClient } from "@/utils/supabase/client";
+import { useToast } from "@/components/Modern/Toast";
+
 
 interface ProfileViewProps {
   userEmail: string;
@@ -11,10 +14,12 @@ interface ProfileViewProps {
   rooms: Room[];
   onSelectRoom: (roomId: string) => void;
   onNewContact: () => void;
-  onPublishAgent?: (agentId: string, description: string) => void;
+  onPublishAgent?: (agentId: string, description: string) => Promise<boolean>;
+  onStartChatWithContact?: (agent: Agent) => Promise<void>;
   onAddPersona: (name: string, background: string, personality: string) => void;
   onDeletePersona: (id: string) => void;
   onOpenSettings: () => void;
+  onLogout?: () => void;
 }
 
 export function ProfileView({
@@ -25,16 +30,37 @@ export function ProfileView({
   onSelectRoom,
   onNewContact,
   onPublishAgent,
+  onStartChatWithContact,
   onAddPersona,
   onDeletePersona,
-  onOpenSettings
+  onOpenSettings,
+  onLogout
 }: ProfileViewProps) {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<"karakter" | "menyukai" | "persona">("persona");
   const [isNewPersonaModalOpen, setIsNewPersonaModalOpen] = useState(false);
   
   const [newPName, setNewPName] = useState("");
   const [newPBackground, setNewPBackground] = useState("");
   const [newPPersonality, setNewPPersonality] = useState("");
+  const [likedAgents, setLikedAgents] = useState<Agent[]>([]);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchLiked = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('agent_likes')
+        .select('agents(*)')
+        .eq('user_id', user.id);
+      if (data) {
+        setLikedAgents(data.map((d: any) => d.agents).filter(Boolean));
+      }
+    };
+    fetchLiked();
+  }, []);
 
   const handleCreatePersona = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +102,31 @@ export function ProfileView({
               Pengaturan
             </span>
           </Button>
+          {onLogout && (
+            <Button
+              variant="secondary"
+              className="border border-red-500/30 text-red-500 hover:bg-red-500/10 hover:border-red-500/50 text-sm px-4 py-2 transition-all cursor-pointer"
+              onClick={() => {
+                toast.confirm({
+                  title: "Keluar dari Akun",
+                  message: "Apakah Anda yakin ingin keluar dari akun Multi-AI?",
+                  confirmText: "Ya, Keluar",
+                  cancelText: "Batal",
+                  variant: "danger",
+                  onConfirm: () => {
+                    onLogout();
+                  }
+                });
+              }}
+            >
+              <span className="flex items-center gap-2 font-medium">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Keluar
+              </span>
+            </Button>
+          )}
           <Button variant="secondary" className="border border-current/20 p-2 aspect-square">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -109,13 +160,48 @@ export function ProfileView({
         <div className="w-full max-w-4xl">
           {activeTab === 'karakter' && (
             <div className="bg-white rounded-3xl overflow-hidden shadow-sm text-gray-900">
-               <ContactsView contacts={contacts} rooms={rooms} onSelectRoom={onSelectRoom} onNewContact={onNewContact} onPublishAgent={onPublishAgent} />
+               <ContactsView 
+                 contacts={contacts} 
+                 rooms={rooms} 
+                 onSelectRoom={onSelectRoom} 
+                 onNewContact={onNewContact} 
+                 onPublishAgent={onPublishAgent} 
+                 onStartChatWithContact={onStartChatWithContact}
+               />
             </div>
           )}
 
           {activeTab === 'menyukai' && (
-            <div className="text-center py-20 text-gray-500">
-              Fitur Menyukai masih dalam tahap pengembangan.
+            <div className="w-full">
+              {likedAgents.length === 0 ? (
+                <div className="text-center py-20 text-gray-500">
+                  <div className="w-16 h-16 bg-red-50 text-red-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm">Belum ada karakter yang kamu sukai.</p>
+                  <p className="text-xs text-gray-400 mt-1">Explore karakter publik dan tekan ❤️ untuk menyukainya.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {likedAgents.map(agent => (
+                    <div key={agent.id} className="bg-black/5 dark:bg-white/5 p-4 rounded-xl border border-current/10 flex items-center gap-3">
+                      {agent.avatar_url ? (
+                        <img src={agent.avatar_url} alt={agent.name} className="w-12 h-12 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-lg shrink-0">
+                          {agent.name.charAt(0)}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold truncate">{agent.name}</h4>
+                        <p className="text-xs opacity-60 truncate">{agent.system_prompt}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

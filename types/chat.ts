@@ -22,7 +22,7 @@ export type Room = {
 
 export type Message = {
   id: string;
-  sender_type: "USER" | "AI";
+  sender_type: "USER" | "AI" | "SYSTEM";
   sender_id?: string;
   content: string;
   created_at: string;

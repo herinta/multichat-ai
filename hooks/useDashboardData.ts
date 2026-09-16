@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Room, Agent, UserPersona, UserSettings } from "@/types/chat";
 
-export function useDashboardData() {
+export function useDashboardData(initialUser?: any) {
   const supabase = createClient();
   
-  const [user, setUser] = useState<{ id: string } | null>(null);
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(initialUser || null);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [userPersonas, setUserPersonas] = useState<UserPersona[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
@@ -28,9 +28,16 @@ export function useDashboardData() {
   // Fetch User & Rooms on Mount
   useEffect(() => {
     const initData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setUser(user);
+      let currentUser = initialUser;
+      if (!currentUser) {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        currentUser = authUser;
+      }
+      if (!currentUser) {
+        setIsLoadingRooms(false);
+        return;
+      }
+      setUser(currentUser);
 
       // Fetch Rooms
       const { data: roomsData, error: roomsError } = await supabase
@@ -65,15 +72,15 @@ export function useDashboardData() {
       setRooms(mappedRooms);
 
       // Fetch Personas
-      const { data: personasData } = await supabase.from('user_personas').select('*').eq('user_id', user.id).order('created_at', { ascending: true });
+      const { data: personasData } = await supabase.from('user_personas').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: true });
       if (personasData) setUserPersonas(personasData);
 
       // Fetch Settings
-      let { data: settingsData, error: settingsError } = await supabase.from('user_settings').select('*').eq('user_id', user.id).maybeSingle();
+      let { data: settingsData, error: settingsError } = await supabase.from('user_settings').select('*').eq('user_id', currentUser.id).maybeSingle();
       if (settingsError) console.error("Error fetching settings:", settingsError);
       
       if (!settingsData && !settingsError) {
-        const { data: newSettings } = await supabase.from('user_settings').insert({ user_id: user.id }).select().maybeSingle();
+        const { data: newSettings } = await supabase.from('user_settings').insert({ user_id: currentUser.id }).select().maybeSingle();
         if (newSettings) settingsData = newSettings;
       }
       if (settingsData) setUserSettings(settingsData);
@@ -100,7 +107,6 @@ export function useDashboardData() {
       if (roomError) throw roomError;
 
       const roomPartyData = agents.map(a => ({ room_id: roomData.id, agent_id: a.id }));
-      roomPartyData.push({ room_id: roomData.id, user_id: user.id } as any);
 
       const { error: partyError } = await supabase.from('room_party').insert(roomPartyData);
       if (partyError) throw partyError;
@@ -117,7 +123,6 @@ export function useDashboardData() {
       return newRoom.id;
     } catch (error) {
       console.error("Error creating chat:", error);
-      alert("Failed to create chat. Make sure you are logged in.");
       return null;
     }
   };
@@ -160,8 +165,8 @@ export function useDashboardData() {
     }
   };
 
-  const handlePublishAgent = async (agentId: string, description: string) => {
-    if (!user) return;
+  const handlePublishAgent = async (agentId: string, description: string): Promise<boolean> => {
+    if (!user) return false;
     try {
       const { error } = await supabase.from('agents').update({
         is_public: true,
@@ -170,20 +175,20 @@ export function useDashboardData() {
       }).eq('id', agentId);
       
       if (error) throw error;
-      alert("Karakter berhasil dipublikasikan ke Explore!");
       
       // Update local state to reflect publish status
       setRooms(prev => prev.map(r => ({
         ...r,
         members: r.members.map(m => m.id === agentId ? { ...m, is_public: true, description } : m)
       })));
+      return true;
     } catch (error) {
       console.error("Failed to publish agent:", error);
-      alert("Gagal mempublikasikan karakter.");
+      return false;
     }
   };
 
-  const handleUpdateAgent = async (agentId: string, updates: Partial<Agent>) => {
+  const handleUpdateAgent = async (agentId: string, updates: Partial<Agent>): Promise<boolean> => {
     try {
       const { error } = await supabase.from('agents').update(updates).eq('id', agentId);
       if (error) throw error;
@@ -191,9 +196,10 @@ export function useDashboardData() {
         ...r,
         members: r.members.map(m => m.id === agentId ? { ...m, ...updates } : m)
       })));
+      return true;
     } catch (error) {
       console.error("Failed to update agent:", error);
-      alert("Failed to update agent details.");
+      return false;
     }
   };
 
@@ -279,7 +285,7 @@ export function useDashboardData() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.reload();
+    window.location.href = "/";
   };
 
   return {

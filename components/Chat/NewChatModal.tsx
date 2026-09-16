@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Agent } from "@/types/chat";
 import { Modal } from "@/components/Modern/Modal";
 import { Button } from "@/components/Modern/Button";
+import { useToast } from "@/components/Modern/Toast";
 
 interface NewChatModalProps {
   isOpen: boolean;
@@ -34,6 +35,8 @@ export function NewChatModal({
   const [contactGender, setContactGender] = useState("Pria");
   const [contactTrait, setContactTrait] = useState("Santai");
   const [contactCustomPrompt, setContactCustomPrompt] = useState("");
+  const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
+  const toast = useToast();
 
   const handleClose = () => {
     setNewChatType(null);
@@ -64,7 +67,30 @@ export function NewChatModal({
     }
 
     onCreateChat(newChatType, newGroupName, membersToPass, selectedContactIds);
-    handleClose(); // Close after success
+    handleClose();
+  };
+
+  const handleGenerateAvatar = async () => {
+    if (!contactName) {
+      toast.info("Isi nama dulu ya!");
+      return;
+    }
+    setIsGeneratingAvatar(true);
+    const prompt = `${contactName}, ${contactAge} years old ${contactGender}, ${contactTrait}, anime portrait, colorful`;
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=200&height=200&nologo=true&seed=${Date.now()}`;
+    try {
+      await new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = url;
+        setTimeout(() => resolve(), 8000);
+      });
+      setContactAvatar(url);
+      toast.success(`✨ Avatar untuk ${contactName} berhasil di-generate!`);
+    } finally {
+      setIsGeneratingAvatar(false);
+    }
   };
 
   return (
@@ -172,15 +198,28 @@ export function NewChatModal({
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Avatar URL (Optional)</label>
-                  <input 
-                    type="url" 
-                    value={contactAvatar}
-                    onChange={e => setContactAvatar(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
-                    placeholder="https://..."
-                  />
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Avatar</label>
+                  <div className="flex gap-2 items-center">
+                    {contactAvatar && (
+                      <img src={contactAvatar} alt="preview" className="w-10 h-10 rounded-full object-cover border-2 border-purple-200 shrink-0" />
+                    )}
+                    <input 
+                      type="url" 
+                      value={contactAvatar}
+                      onChange={e => setContactAvatar(e.target.value)}
+                      className="flex-1 bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none"
+                      placeholder="https://... (optional)"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGenerateAvatar}
+                      disabled={isGeneratingAvatar}
+                      className="px-3 py-2 text-xs font-semibold bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg border border-purple-200 transition-all disabled:opacity-60 whitespace-nowrap shrink-0"
+                    >
+                      {isGeneratingAvatar ? '⏳' : '✨ AI'}
+                    </button>
+                  </div>
                 </div>
               </div>
 

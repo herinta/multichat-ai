@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ToastProvider } from "@/components/Modern/Toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,7 +15,25 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Multi-AI Chat",
-  description: "A modern Multi-Agent Chat application.",
+  description: "Chat dengan berbagai karakter AI cerdas, persona unik, dan inisiatif obrolan spontan.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Multi-AI",
+  },
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#3b82f6",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -24,11 +43,18 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="id"
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
     >
-      <body className="min-h-screen flex flex-col font-sans bg-gray-50 text-gray-900 overflow-hidden">
-        {children}
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+      </head>
+      <body className="min-h-screen flex flex-col font-sans bg-gray-50 text-gray-900 overflow-hidden select-none">
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

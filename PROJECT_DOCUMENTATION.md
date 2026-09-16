@@ -1,76 +1,238 @@
-# Multi-AI Project Documentation
+# Multi-AI Project Documentation & Handover Guide
 
-## 1. Project Overview
-**Multi-AI** is a Next.js application that allows users to create and participate in private or group chat rooms populated by AI agents. These agents have unique personas, can interact with the user, and can even interact with each other in group chats based on context and mentions.
-
-### Core Technologies
-*   **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS 4
-*   **Backend API**: Next.js Route Handlers (`/api/chat`)
-*   **Database & Auth**: Supabase
-*   **AI Provider**: Google Generative AI (Gemini 3.5 Flash Lite)
+> **Catatan untuk Sesi Berikutnya**: Dokumen ini adalah *single source of truth* dari seluruh fitur, arsitektur, skema database, perbaikan bug, dan status terkini aplikasi **Multi-AI**. Baca dokumen ini terlebih dahulu di awal sesi agar tidak perlu menganalisis codebase dari nol.
 
 ---
 
-## 2. Architecture & Directory Structure
+## 1. Project Overview & Tech Stack
 
-*   `/app/api/chat/route.ts`: The core AI engine. Handles routing messages to the correct AI, fetching cross-room memory, injecting personas, and streaming responses from Gemini.
-*   `/app/page.tsx`: The main Dashboard frontend. A heavy component (nearly 1000 lines) that manages all UI states (sidebar, chat area, info panel, modals) and local message state.
-*   `/components/Modern/`: Reusable UI components styled with Tailwind (Button, Modal, Bubble).
-*   `/hooks/useTypewriter.ts`: Custom hook to create the typewriter effect when AI agents are responding.
-*   `/utils/supabase/`: Supabase client initialization.
+**Multi-AI** adalah aplikasi web modern berbasis Next.js App Router yang memungkinkan pengguna berinteraksi dengan banyak karakter AI (*agents*) baik dalam ruang obrolan privat (1-on-1) maupun obrolan grup (*multi-agent group chat*). Karakter AI memiliki memori jangka panjang, memori lintas room, kepribadian santai khas manusia, kemampuan memulai percakapan spontan (*chat duluan*), dan pertahanan anti-prompt injection yang merespon layaknya manusia bingung.
+
+### Tech Stack
+* **Frontend**: Next.js 16.3 (Turbopack, App Router), React 19, Tailwind CSS 4
+* **Backend API**: Next.js Route Handlers (`/api/chat`, `/api/chat/proactive`, `/api/memory/consolidate`, `/api/agent-likes`)
+* **Database & Auth**: Supabase Database (PostgreSQL), Supabase Auth, Supabase Realtime
+* **AI Provider**: Google Generative AI SDK (`gemini-3.5-flash-lite`)
+* **Image & Avatar Provider**: Pollinations.ai (Gratis, tanpa API key)
+* **Markdown Rendering**: `react-markdown`, `remark-gfm`, `react-syntax-highlighter` (One Dark)
+
+---
+
+## 2. Directory & Architecture Structure
+
+```
+d:\Project\multi-ai\
+├── app\
+│   ├── api\
+│   │   ├── agent-likes\route.ts       # Like / Unlike agent publik
+│   │   ├── chat\
+│   │   │   ├── route.ts               # Core chat engine, routing, memory, anti-prompt injection
+│   │   │   └── proactive\route.ts     # Engine chat duluan spontan + follow-up agenda
+│   │   └── memory\
+│   │       └── consolidate\route.ts   # Auto-summarize pesan > 3 hari ke long-term memory
+│   ├── landing\page.tsx               # Rute mandiri untuk Landing Page (/landing)
+│   ├── login\page.tsx                 # Halaman Masuk / Daftar Akun (Tab Switcher)
+│   ├── register\page.tsx              # Rute mandiri untuk Pendaftaran Akun (/register)
+│   ├── layout.tsx                     # Root layout + ToastProvider
+│   └── page.tsx                       # Async Server Component (render LandingPage instan tanpa loading jika belum login, atau DashboardClient jika login)
+├── components\
+│   ├── Dashboard\
+│   │   └── DashboardClient.tsx        # Dashboard klien interaktif untuk pengguna terautentikasi
+│   ├── Landing\
+│   │   └── LandingPage.tsx            # Modern Blue Glassmorphism Landing Page (Hero, Mockups, Voice Preview, Customizer)
+│   ├── Chat\
+│   │   ├── ChatArea.tsx               # Area chat, Markdown bubble, audio/voice, tombol Chat Duluan & Export
+│   │   ├── ContactsView.tsx           # Daftar kontak AI, tombol publish ke Explore, start chat
+│   │   ├── ExploreView.tsx            # Komunitas publik AI, like/unlike ❤️, clone/start chat
+│   │   ├── GroupsView.tsx             # Manajemen room obrolan grup
+│   │   ├── InfoPanel.tsx              # Sidebar detail room, edit persona, tema, tambah member
+│   │   ├── NewChatModal.tsx           # Modal buat kontak baru / grup baru + AI Avatar Generator
+│   │   ├── ProfileView.tsx            # Tab Profil: Karakter saya, Karakter yang disukai, Kelola Persona, Tombol Log Out
+│   │   └── Sidebar.tsx                # Daftar chat recent, live search, unread badge, filter, Tombol Log Out
+│   └── Modern\
+│       ├── Bubble.tsx                 # Gelembung chat modern dengan avatar dan quote reply
+│       ├── Button.tsx                 # Komponen button standar
+│       ├── Modal.tsx                  # Komponen modal dialog
+│       ├── SettingsModal.tsx          # Modal pengaturan user (muted words, global theme, Tombol Keluar dari Akun)
+│       └── Toast.tsx                  # Sistem Custom Toast (Glassmorphism, progress timer) & Custom Confirm Modal (pengganti native alert/confirm)
+├── hooks\
+│   ├── useChat.ts                     # Hook pengirim pesan, realtime sync, inter-AI reply, /imagine
+│   ├── useDashboardData.ts            # Hook data dashboard + handleLogout (redirect ke Landing Page)
+│   ├── useProactiveChat.ts            # Hook background heartbeat chat duluan + multi-tab mutex lock
+│   └── useTypewriter.ts               # Efek animasi ketik teks AI
+├── types\
+│   └── chat.ts                        # Definisi tipe data TypeScript (Agent, Room, Message, Persona, Settings)
+└── utils\
+    └── supabase\                      # Inisialisasi Supabase client (browser, server, middleware proteksi rute)
+```
 
 ---
 
 ## 3. Database Schema (Supabase)
 
-The application uses a relational model to link users, rooms, and agents.
+Tabel-tabel yang aktif digunakan di Supabase:
 
-1.  **`users`**: Managed by Supabase Auth.
-2.  **`rooms`**:
-    *   `id` (UUID), `title` (String), `user_id` (FK to `users`)
-3.  **`agents`**:
-    *   `id` (UUID), `name` (String), `role` (String), `system_prompt` (Text - defines the persona)
-4.  **`room_party`**: Junction table mapping agents to rooms.
-    *   `room_id` (FK to `rooms`), `agent_id` (FK to `agents`)
-5.  **`messages`**:
-    *   `id` (UUID), `room_id` (FK), `sender_type` ('USER' | 'AI'), `sender_id` (FK to `agents`, null if USER), `content` (Text), `created_at` (Timestamp)
-
----
-
-## 4. Key Mechanics & Features
-
-### A. Dynamic AI Routing & Mention System
-In a group chat, the system doesn't just send the message to every AI. It intelligently routes it:
-1.  **Direct Mentions**: If a user types `@AgentName`, that specific agent is guaranteed to reply.
-2.  **Contextual Chime-in**: If no one is mentioned, a random agent is picked. Other agents in the room have a ~30% chance to also chime in.
-3.  **Inter-AI Conversation**: If a user goes silent for 4.5 seconds, and the last message was from an AI, there is a chance another AI will reply to the first AI, creating a continuous conversation loop (capped at 4 chains to prevent infinite loops).
-
-### B. Global AI Memory (Cross-Room Context)
-When an agent replies, the API fetches the last 15 messages from *other* rooms that the agent is a part of. This gives the agent a "global memory" so they can remember past interactions with the user outside of the current room.
-
-### C. Persona System
-By default, the system injects a "Casual Indonesian Slang" persona into every agent (lowercase only, no punctuation, using words like 'wkwk', 'gpp', 'bjirr'). The user can define a specific characteristic when creating the agent, which is appended to this core persona.
-
-### D. Optimistic UI
-When a user sends a message, it appears immediately on the screen (Optimistic UI) before the database or API confirms it. It groups messages sent in quick succession (3-second debounce) into "Bubbles" to send to the AI as a single context block.
+1. **`users`**: Dikelola oleh Supabase Auth (`auth.users`).
+2. **`rooms`**:
+   * `id` (UUID, PK), `title` (Text), `user_id` (UUID, FK), `theme` (Text), `memory` (Text, long-term memory), `user_persona_id` (UUID, FK), `created_at` (Timestamptz).
+3. **`agents`**:
+   * `id` (UUID, PK), `name` (Text), `role` (Text), `system_prompt` (Text), `avatar_url` (Text), `creator_id` (UUID), `is_public` (Boolean), `description` (Text), `created_at` (Timestamptz).
+4. **`room_party`**:
+   * `room_id` (UUID, FK), `agent_id` (UUID, FK).
+   * ⚠️ **PENTING**: Tabel ini **TIDAK MEMILIKI** kolom `user_id`! Hanya berisi pasangan `(room_id, agent_id)`.
+5. **`messages`**:
+   * `id` (UUID, PK), `room_id` (UUID, FK), `sender_type` ('USER' | 'AI'), `sender_id` (UUID, FK ke agents, null jika USER), `content` (Text), `created_at` (Timestamptz).
+6. **`user_personas`**:
+   * `id` (UUID, PK), `user_id` (UUID, FK), `name` (Text), `background` (Text), `personality` (Text), `is_default` (Boolean), `created_at` (Timestamptz).
+7. **`user_settings`**:
+   * `user_id` (UUID, PK), `muted_words` (Text[]), `global_theme` (Text).
+8. **`agent_likes`**:
+   * `id` (UUID, PK), `user_id` (UUID, FK), `agent_id` (UUID, FK), `created_at` (Timestamptz), Unique constraint `(user_id, agent_id)`.
 
 ---
 
-## 5. Current Progress & Status Report
+## 4. Fitur-Fitur yang Sudah Selesai 100% (Completed)
 
-**✅ Completed Features (MVP):**
-*   Supabase Authentication (Login/Logout functionality).
-*   Creating Private Chats (1 on 1 with AI).
-*   Creating Group Chats (Selecting multiple existing AIs).
-*   Real-time typing indicators with simulated delays based on text length.
-*   Typewriter effect for incoming AI messages.
-*   Complex AI logic (routing, mentions, cross-room memory, persona constraints).
-*   Sidebar with chat filtering (All/Private/Group).
-*   Info Panel to view room details and add new members to existing rooms.
+### A. Core Chat Engine & Group Inter-AI
+* **Dynamic Routing**: Mendeteksi mention `@NamaAgent` atau memilih agen secara acak.
+* **Inter-AI Ping Pong**: Agen AI di group chat bisa saling membalas satu sama lain secara otomatis (dibatasi 4 putaran agar tidak *infinite loop*).
+* **Cross-Room Memory**: Agen dapat mengingat 15 percakapan terakhir dari room lain yang melibatkan dirinya dan pengguna.
+* **Markdown & Syntax Highlighting**: Pesan AI di-render dengan format Markdown lengkap dengan pewarnaan sintaks koding (*One Dark*). Pesan user tetap plain text natural.
+* **Optimistic UI & Debounce**: Pesan user muncul seketika di layar, lalu dibungkus per bubble (debounce 3 detik) ke Gemini.
+* **Supabase Realtime Sync**: Sinkronisasi pesan secara instan antar perangkat / tab. Dilengkapi deduplikasi otomatis (ID optimis diganti dengan UUID database).
 
-**⏳ Pending / Missing Features (Room for Improvement):**
-1.  **Code Refactoring**: `app/page.tsx` is too large (~1000 lines). State logic, API calls, and UI components should be separated into smaller React components (e.g., `<Sidebar>`, `<ChatArea>`, `<InfoPanel>`).
-2.  **Real-time Subscriptions**: The app currently fetches messages on load and updates local state when sending. If the user uses the app on two devices, messages won't sync in real-time unless refreshed. Supabase Realtime needs to be implemented on the `messages` table.
-3.  **Agent Management**: Users can create agents during chat creation, but there is no dedicated page to edit an agent's name or `system_prompt` after they are created.
-4.  **Error Handling**: API errors during chat generation are mostly ignored to prevent crashing the whole group chat. Better user feedback is needed when an AI fails to respond.
-5.  **Markdown Rendering**: The default persona forces "PLAIN TEXT ONLY". If we want agents to share code or format text, we need a Markdown renderer in the `Bubble` component.
+### B. Fitur "AI Chat Duluan" (Spontaneous Proactive Messaging)
+* **Smart Follow-up (Faktual)**: Jika user pernah bercerita tentang agenda masa depan (misal: ujian, sidang skripsi, interview kerja, sakit, liburan), AI akan berinisiatif menanyakan kabarnya (*"eh gimana kemarin ujiannya, lancar ga?"*).
+* **Zero Hallucination (Chit-chat Kasual)**: Jika tidak ada agenda masa lalu, AI dilarang keras mengarang cerita palsu dan hanya mengirim sapaan santai sesuai kepribadiannya (*"tumben sepi lu lagi sibuk ya"*, *"lagi ngapain lu"*).
+* **Anti-Spam / Ghosting Guardrail**: Jika pesan terakhir di room adalah dari AI (belum dibalas user), sistem **DILARANG** mengirim pesan baru lagi.
+* **Multi-Tab Mutex Lock**: Mencegah *multi-tab stampede* via leader-election berbasis `localStorage` sehingga tidak ada pesan duplikat saat user membuka banyak tab.
+* **Tombol "✨ Chat Duluan"**: Disediakan di header [`ChatArea.tsx`](file:///d:/Project/multi-ai/components/Chat/ChatArea.tsx) untuk pengujian manual instan.
+
+### C. Keamanan & Anti-Prompt Injection ("Respon Manusia Bingung")
+* **Dynamic Persona-Tuned Confusion**: AI merespon upaya prompt injection, DAN mode, atau perintah membocorkan prompt dengan respon bingung yang **di-generate secara dinamis oleh AI sesuai gaya ketikan, aksen, dan kepribadian karakter masing-masing** (misal: karakter centil akan merespon centil dan manja, karakter tsundere akan merespon ketus/marah, karakter bapak-bapak akan merespon dengan logat bapak-bapak, bukan teks statis yang kaku).
+* **Dual-Layer Defense Architecture**:
+  1. *Lapis 1 (Prompt Framing)*: AI menanamkan identitas sebagai manusia asli di aplikasi chat yang menganggap istilah bot/AI sebagai ocehan aneh teman.
+  2. *Lapis 2 (Server Interceptor)*: Backend secara otomatis mendeteksi jika output AI mengandung tanda kebocoran prompt atau penolakan kaku (*"sebagai model AI..."*), lalu menimpanya dengan respon bingung yang di-generate dinamis secara instan sesuai karakter agen tersebut.
+* **Sanitasi Delimiter**: Pembersihan karakter pengontrol `|||`, `[Bubble]`, dan `[SYSTEM]` dari input pengguna.
+* **Memory Anti-Poisoning**: API konsolidasi memori memfilter instruksi jahat di dalam riwayat chat lama.
+* **Penyaringan Kata Terlarang (Muted Words)**: Diterapkan dengan regex langsung di server.
+
+### D. Fitur Komunitas & Eksplorasi
+* **Upload / Publish Character**: Pengguna dapat mempublikasikan karakter AI pribadinya ke Explore lengkap dengan deskripsi singkat.
+* **Explore AI Marketplace**: Menampilkan semua karakter publik buatan komunitas.
+* **Sistem Like ❤️**: Pengguna bisa menyukai/membatalkan like pada karakter publik. Jumlah like terhitung secara realtime.
+* **Mulai Chat Cerdas**: Mengklik "Mulai Chat Baru" pada karakter di Explore akan memeriksa apakah room privat dengan karakter tersebut sudah pernah ada. Jika ada, room lama dibuka kembali tanpa membuat room duplikat.
+* **Avatar Generator (Pollinations.ai)**: Tombol **✨ AI** di modal pembuatan kontak untuk men-generate foto avatar anime otomatis tanpa API key.
+
+### F. PWA (Progressive Web App) & Push Notifications
+* **Add to Home Screen (Mobile & Desktop)**:
+  * Web App Manifest lengkap (`app/manifest.ts` & `public/manifest.json`) dengan nama *Multi-AI*, icons (192x192, 512x512, apple-touch-icon), background `#0a0f1d`, theme `#3b82f6`, dan `display: "standalone"`.
+  * Tombol instalasi cepat di Sidebar: `"📲 Pasang di Layar Utama HP"`.
+  * Panduan instalasi mandiri untuk iOS Safari (ikon Share ⎋ -> Add to Home Screen ➕).
+* **Service Worker & Push Notifications (`public/sw.js`)**:
+  * Pendaftaran otomatis Service Worker dengan penanganan `install`, `activate`, `push`, dan `notificationclick`.
+  * Mengarahkan / membuka ruang chat terkait ketika notifikasi diklik (`client.navigate('/?room=...')` atau postMessage `OPEN_ROOM`).
+* **Sistem Notifikasi AI Otomatis (`hooks/useWebNotifications.ts`)**:
+  * Mengirim notifikasi lokal/native saat AI mengirim balasan pesan atau memulai *chat duluan* ketika tab browser sedang tertutup/berada di latar belakang (`document.hidden`) atau saat user sedang berada di room yang berbeda.
+  * Status badge izin notifikasi (*Aktif*, *Belum Aktif*, *Diblokir*) di Modal Pengaturan (`🔔 Notifikasi & App`).
+  * Tombol **"✨ Tes Notifikasi Sekarang"** untuk menguji notifikasi langsung tanpa menunggu pesan AI.
+
+### G. Voice Call (1-on-1 & Group Call) & Penggabungan Memori Grup
+* **Turn-Taking Orchestrator API (`/api/call/turn`)**:
+  * Mengatur koordinasi giliran bicara multi-agen di panggilan grup: mendeteksi panggilan nama secara spesifik atau memilih agen yang relevan.
+  * Mendukung **Inter-AI Banter**: AI bisa saling menyahut berurutan di telepon (dibatasi 2 putaran) sebelum mengembalikan giliran ke user.
+  * Format percakapan lisan ringkas (1-2 kalimat), tanpa markdown dan tanpa emoji agar pelafalan TTS terdengar luwes dan alami.
+* **Penggabungan Memori Grup & Post-Call Summary (`/api/call/end`)**:
+  * Saat telepon ditutup, Gemini merangkum topik pembicaraan dan mengekstrak fakta penting, preferensi user, jadwal/ujian, serta sudut pandang tiap agen.
+  * **Pembaruan `rooms.memory`**: Memori jangka panjang grup diperbarui otomatis dengan hasil konsolidasi.
+  * **Dukungan Cross-Room**: Karakter yang ikut di panggilan grup dapat mengingat apa yang dibicarakan di telepon saat nanti user mengobrol secara privat 1-on-1.
+  * **Kartu Sesi Chat (`MessageItem`)**: Muncul kartu interaktif `📞 Panggilan Suara Berakhir` di ruang chat lengkap dengan durasi, ringkasan, dan accordion transkrip percakapan.
+* **Audio Pipeline Hook (`hooks/useVoiceCall.ts`)**:
+  * Web Speech Recognition (`id-ID`) untuk input suara user secara realtime dengan interim results.
+  * Web Speech Synthesis (`window.speechSynthesis`) dengan modulasi pitch dan speed unik per agen.
+  * **Anti-Echo Feedback**: Mikrofon user otomatis dinonaktifkan sementara saat AI sedang berbicara di speaker.
+* **Layar Panggilan Discord / FaceTime Style (`components/Call/CallModal.tsx` & `CallParticipantTile.tsx`)**:
+  * Grid peserta responsif dengan glowing pulse border hijau dan ombak audio (*speaking visualizer*) saat seorang agen/user berbicara.
+  * Floating closed captions (subtitle) di bagian bawah.
+  * Kontrol panggilan: Toggle Mic Mute, Speaker Deafen, dan Tutup Telepon (Hang Up).
+
+### H. Fitur Pelengkap & Penutupan Celah Keamanan/Audio
+* **Text-to-Speech (TTS) di Setiap Bubble Chat AI**:
+  * Tombol speaker `🔊` pada bubble pesan AI untuk mendengarkan pesan suara tanpa harus masuk sesi panggilan telepon.
+  * Pembersih teks otomatis (`cleanTextForSpeech`) yang membuang format markdown, blok kode koding, tag gambar, dan emoji agar pengucapan TTS terdengar fasih dan alami dalam bahasa Indonesia.
+  * Tombol berubah menjadi stop `⏹️` dengan indikator aktif saat audio sedang berbicara.
+* **Pinned Messages (Sematkan Pesan Penting)**:
+  * Tombol `📌` pada bubble chat untuk menyematkan pesan penting per room.
+  * Menampilkan sticky banner di bawah header chat: klik banner untuk langsung melompat (*smooth scroll*) ke pesan yang disematkan, lengkap dengan tombol lepas sematan (*unpin*).
+* **In-Chat Message Search (Pencarian Kata/Topik di Chat)**:
+  * Tombol pencarian `🔍` di header room obrolan untuk mencari kata atau topik tertentu.
+  * Menampilkan jumlah pesan yang cocok dan menyorot (*highlight*) pesan dengan border kuning.
+* **Bersihkan Riwayat Chat (Clear Chat History)**:
+  * Tombol di `InfoPanel` untuk menghapus seluruh riwayat pesan di room tanpa harus menghapus room atau karakter AI-nya.
+* **Penutupan Celah Audio Mobile (iOS Safari & Android Chrome)**:
+  * *Silent audio warmup* instan pada saat tombol telepon ditekan agar browser mobile tidak memblokir pemutaran TTS asinkron (*autoplay restriction policy*).
+* **Penutupan Celah Panggilan Kosong**:
+  * Guardrail pada penutupan telepon: jika panggilan berlangsung < 3 detik atau transkrip kosong, sistem tidak memanggil Gemini summarization dan tidak membuat kartu kosong di chat (menghemat kuota token AI dan menjaga kerapian chat).
+* **Fitur Log Out (Keluar Akun) & Proteksi Dashboard**:
+  * Pengguna yang belum login diarahkan ke Landing Page (`/` atau `/landing`) dan **sama sekali tidak bisa mengakses Dashboard** (ruang obrolan, kontak, pesan, explore, dan panggilan suara).
+  * Tombol **Keluar / Log Out** dapat diakses dengan mudah di 3 tempat strategis:
+    1. **Sidebar Footer**: Tombol merah khusus di samping tile profil pengguna.
+    2. **Tab Profil (`ProfileView`)**: Tombol "Keluar" di jajaran tombol aksi atas di samping Pengaturan.
+    3. **Modal Pengaturan (`SettingsModal`)**: Tab "Akun" -> Kartu "Sesi Akun" -> Tombol "Keluar".
+  * Konfirmasi peringatan sebelum logout untuk mencegah klik tidak sengaja.
+  * Menghapus sesi Supabase Auth (`supabase.auth.signOut()`) dan me-redirect browser kembali ke Landing Page (`/`).
+* **Modern Blue Glassmorphism Landing Page**:
+  * Diadaptasi dari struktur visual *Dreamweave* dengan sentuhan palet biru modern (*vibrant blue, cyan, indigo*) yang elegan dan responsif.
+  * Fitur Landing Page mencakup:
+    * **Hero Section Asimetris**: Headline modern, CTA "Mulai Sekarang" & "Log In", floating mockup kartu panggilan suara aktif dan obrolan grup.
+    * **Live Voice Simulator & Customizer**: Slider kepribadian (Tingkat Empati & Sense of Humor), pemilihan gender, serta preview suara AI interaktif via Web Speech API (`id-ID`).
+    * **Showcase Fitur Unggulan**: Kartu modern untuk Proactive Chat ("AI Chat Duluan"), Group Voice Call, dan Marketplace Karakter AI Publik.
+    * **Group Call Preview**: Visualisasi mockup panggilan suara multi-agent dengan 4 peserta aktif (Kuro, Nofa, Elina, User).
+* **Sistem Custom Toast & Custom Confirm Modal (Tanpa Native Alert)**:
+  * Menghapus 100% pemanggilan `window.alert()` dan `window.confirm()` bawaan browser yang kaku dan memblokir thread.
+  * Digantikan oleh komponen React kustom [`components/Modern/Toast.tsx`](file:///d:/Project/multi-ai/components/Modern/Toast.tsx) (4 varian dengan progress timer & confirm modal dialog).
+* **Background Gambar Futuristik untuk Halaman Login & Register**:
+  * Wallpaper digital cyber glass realm beresolusi tinggi (`/auth-bg.jpg`) yang dihasilkan khusus untuk Multi-AI dengan tema deep royal blue, luminous cyan circuits, dan arsitektur kaca transparan.
+  * Kartu formulir Masuk dan Daftar mengambang di atasnya dengan efek *frosted glassmorphism* transparan ultra-elegan (`backdrop-blur-2xl bg-white/95`) dan ambient vignette untuk menjaga keterbacaan teks.
+
+---
+
+## 5. Gotchas & Catatan Teknis Kritis (Jangan Diulangi!)
+
+1. **Skema `room_party`**:
+   * Jangan pernah memasukkan `user_id` ke `room_party`. Kolomnya hanya `room_id` dan `agent_id`. `user_id` disimpan di tabel `rooms`.
+2. **Model Gemini**:
+   * Gunakan model `gemini-3.5-flash-lite`. Model lama seperti `gemini-1.5-flash` sudah tidak tersedia (404) pada konfigurasi API saat ini.
+3. **Unread Badges Realtime**:
+   * Pengecekan realtime untuk unread badge harus di-subscribe di tingkat global (`app/page.tsx`) mendengarkan semua pesan yang masuk ke room milik user, bukan hanya room yang aktif.
+4. **Deduplikasi Pesan Realtime**:
+   * Pesan optimis lokal memiliki ID berawalan `opt-`. Saat Supabase Realtime menerima insert dengan UUID baru, cocokkan `content` dan `sender_type` untuk menggantikan pesan optimis, bukan menambahkan pesan baru.
+5. **PWA di Mobile (iOS Safari vs Chrome/Android)**:
+   * Event `beforeinstallprompt` hanya didukung di Chromium (Android/Chrome/Edge). Untuk iOS Safari, browser tidak menyediakan prompt otomatis via kode; berikan petunjuk tap tombol Share -> Tambah ke Layar Utama.
+   * Service Worker harus di-serve dari direktori root (`/sw.js`) agar memiliki scope ke seluruh path aplikasi (`/`).
+6. **Voice Call & Echo Loop**:
+   * Saat agen AI sedang berbicara lewat speaker (`speechSynthesis.speak`), speech recognition harus ditangguhkan sementara (`abort()`) agar suara AI tidak memantul masuk ke mikrofon dan memicu loop.
+7. **Tipe Data `sender_type`**:
+   * Tabel `messages` dan `types/chat.ts` mendukung `'USER' | 'AI' | 'SYSTEM'`. Kartu sesi telepon menggunakan `SYSTEM` agar tidak dianggap pesan dari user ataupun karakter agen tertentu.
+8. **Audio Autoplay di iOS Safari / Android**:
+   * Pemicuan `speechSynthesis.speak` di mobile harus memiliki warmup / unlock di dalam event klik langsung (*user gesture*).
+
+---
+
+## 6. Backlog / Ide Pengembangan Berikutnya (Yang Kurang / Bisa Ditingkatkan)
+
+Jika ingin menambah fitur baru di masa depan, berikut kandidat terbaik yang belum diimplementasikan:
+
+1. **Web Push via VAPID / Push Service Backend**:
+   * Menambahkan integrasi `web-push` library di backend menggunakan VAPID keys untuk mentrigger push notification jarak jauh bahkan ketika browser benar-benar ditutup secara total di OS.
+2. **Kirim Gambar / Lampiran File**:
+   * Mengunggah gambar dari galeri/kamera untuk dianalisis oleh multimodal Gemini.
+3. **Edit Karakter Langsung**:
+   * Menyediakan modal untuk mengedit nama, avatar, dan `system_prompt` karakter yang sudah dibuat tanpa harus masuk ke database Supabase.
+
+---
+
+## 7. Status Verifikasi Terkini
+* **Build**: ✅ `npm run build` sukses 100% (*exit code 0*), lolos TypeScript dan semua rute App Router.
+* **Dev Server**: ✅ Berjalan stabil di `http://localhost:3000` dan Local Network `http://192.168.18.31:3000`.
+* **Voice Call & TTS**: ✅ Audio warmup mobile aktif, TTS bubble berfungsi, pin message & in-chat search aktif, pembersihan riwayat chat siap digunakan.
