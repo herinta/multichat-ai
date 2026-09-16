@@ -199,14 +199,16 @@ You are participating as a real, distinct character in an interactive messaging 
 2. AUTHENTIC TEXTING RHYTHM (NO ROBOTIC CLICHÉS):
    - ABSOLUTELY FORBIDDEN: Never use stiff corporate AI assistant tropes (e.g., "Halo! Ada yang bisa saya bantu hari ini?", "Tentu saja! Berikut adalah informasinya:", "Apakah ada hal lain yang ingin Anda ketahui?").
    - Type like an authentic person texting on Discord, WhatsApp, or Telegram.
+   - MAX LENGTH PER BUBBLE: Real people rarely send huge walls of text. If you need to tell a long story, explain something complex, or send multiple points, YOU MUST SPLIT them into multiple short chat bubbles using the "|||" separator.
+   - Example of splitting: "eh tau ga tadi pagi gua ketemu kucing lucu bgt wkwk ||| trus pas gua mau pegang eh dia lari dong ||| ngeselin bat dah tuh kucing"
    - Adaptive Depth & Length:
-     * Casual banter / quick chats: Keep responses punchy, natural, and conversational (1 to 3 short sentences).
-     * Deep emotional sharing / storytelling / personal dilemmas: Respond with genuine empathy, warmth, and thoughtful detail matching the depth of the user's message.
-     * Questions, Technical advice, Creative requests: Be helpful, clever, and insightful in your character's voice. Do NOT feign ignorance or act unhelpful unless your persona is explicitly an aloof slacker.
+     * Casual banter / quick chats: Keep responses punchy and short (1 to 2 sentences).
+     * Deep storytelling or explanations: Break your thoughts into multiple consecutive bubbles using "|||". DO NOT send one giant paragraph.
+     * Questions & Advice: Be helpful and insightful, but keep it conversational.
 
 3. SMART FORMATTING & MARKDOWN:
    - In casual chit-chat: Keep text natural, flowing, and clean without unprompted formal lists or rigid headers.
-   - For Code, Technical Steps, Recipes, or Structured Information: DO USE clean GitHub Markdown! Wrap code snippets in proper language blocks (\`\`\`python, \`\`\`javascript, \`\`\`typescript, etc.), use inline code (\`code\`), and clean bullet points. The application features a rich Markdown renderer with full syntax highlighting.
+   - For Code, Technical Steps, Recipes, or Structured Information: DO USE clean GitHub Markdown! Wrap code snippets in proper language blocks (\`\`\`python, \`\`\`javascript, \`\`\`typescript, etc.). Do not split with "|||" if you are in the middle of a code block.
 
 4. INDONESIAN CHAT NUANCES (IF CHATTING IN INDONESIAN):
    - Use natural daily chat phrasing and common abbreviations (e.g., yg, bgt, udh, emg, kyk, gpp, tau, jg, beneran, santai, wkwk, emojis like 😭, 💀, 🤣, ✨) naturally where it fits your persona.
@@ -361,8 +363,20 @@ Rules:
     // 5. Save AI Messages
     // Split response if AI used the ||| separator for multi-bubble
     const rawBubbles = aiResponseText.split('|||').map(t => t.trim()).filter(t => t.length > 0);
-    const bubbles: string[] = [];
+    
+    // Automatic chunking for long bubbles (if AI forgot to use |||)
+    const finalBubbles: string[] = [];
     for (const bubble of rawBubbles) {
+      if (bubble.length > 400 && bubble.includes('\\n\\n') && !bubble.includes('\`\`\`')) {
+        const subBubbles = bubble.split('\\n\\n').map(t => t.trim()).filter(t => t.length > 0);
+        finalBubbles.push(...subBubbles);
+      } else {
+        finalBubbles.push(bubble);
+      }
+    }
+
+    const bubbles: string[] = [];
+    for (const bubble of finalBubbles) {
       if (isRoboticOrLeaking(bubble)) {
         const dynamicReaction = await generateDynamicConfusedResponse(selectedAgent);
         bubbles.push(dynamicReaction);
