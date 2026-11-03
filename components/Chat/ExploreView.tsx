@@ -9,6 +9,7 @@ import { useToast } from "@/components/Modern/Toast";
 interface ExploreViewProps {
   currentUser: { id: string } | null;
   onStartChat: (agent: Agent) => Promise<void>;
+  onBack?: () => void;
 }
 
 interface ExploreAgent extends Agent {
@@ -16,7 +17,7 @@ interface ExploreAgent extends Agent {
   isLiked?: boolean;
 }
 
-export function ExploreView({ currentUser, onStartChat }: ExploreViewProps) {
+export function ExploreView({ currentUser, onStartChat, onBack }: ExploreViewProps) {
   const [exploreAgents, setExploreAgents] = useState<ExploreAgent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
@@ -24,46 +25,23 @@ export function ExploreView({ currentUser, onStartChat }: ExploreViewProps) {
   const supabase = createClient();
   const toast = useToast();
 
+  const [activeFilter, setActiveFilter] = useState<"all" | "mine" | "popular">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
   useEffect(() => {
     const fetchPublicAgents = async () => {
-      if (!currentUser) return;
-
       try {
-        // Fetch public agents (filter out own agents if logged in)
-        let query = supabase
-          .from('agents')
-          .select('*')
-          .eq('is_public', true)
-          .order('created_at', { ascending: false });
+        setIsLoading(true);
+        const res = await fetch('/api/agent/explore');
+        if (!res.ok) throw new Error("Failed to load explore data");
+        const data = await res.json();
 
-        // Only filter out own agents if user is logged in
-        if (currentUser?.id) {
-          query = query.neq('creator_id', currentUser.id);
+        if (data.agents) {
+          setExploreAgents(data.agents);
         }
-
-        const { data: agents, error } = await query;
-        if (error) throw error;
-
-        // Fetch like counts for each agent
-        const agentsWithStats: ExploreAgent[] = await Promise.all(
-          (agents || []).map(async (agent) => {
-            const { count } = await supabase
-              .from('agent_likes')
-              .select('*', { count: 'exact', head: true })
-              .eq('agent_id', agent.id);
-            return { ...agent, likeCount: count || 0 };
-          })
-        );
-
-        // Fetch current user's liked agents
-        const { data: userLikes } = await supabase
-          .from('agent_likes')
-          .select('agent_id')
-          .eq('user_id', currentUser.id);
-
-        const likedSet = new Set((userLikes || []).map(l => l.agent_id));
-        setLikedIds(likedSet);
-        setExploreAgents(agentsWithStats);
+        if (data.likedIds) {
+          setLikedIds(new Set(data.likedIds));
+        }
       } catch (error) {
         console.error("Failed to fetch explore agents:", error);
       } finally {
@@ -116,14 +94,102 @@ export function ExploreView({ currentUser, onStartChat }: ExploreViewProps) {
     }
   };
 
+  const filteredAgents = exploreAgents
+    .filter(a => {
+      if (activeFilter === "mine") {
+        return currentUser?.id && a.creator_id === currentUser.id;
+      }
+      return true;
+    })
+    .filter(a => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        a.name.toLowerCase().includes(q) ||
+        (a.description || "").toLowerCase().includes(q) ||
+        (a.system_prompt || "").toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      if (activeFilter === "popular") {
+        return (b.likeCount || 0) - (a.likeCount || 0);
+      }
+      return 0;
+    });
+
+  const myPublishedCount = currentUser?.id 
+    ? exploreAgents.filter(a => a.creator_id === currentUser.id).length 
+    : 0;
+
   return (
-    <div className="flex-1 flex flex-col bg-gray-50/50 p-8 overflow-y-auto">
+    <div className="flex-1 flex flex-col bg-gray-50/50 p-4 sm:p-8 overflow-y-auto">
       <div className="max-w-5xl w-full mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Explore AI</h1>
-            <p className="text-gray-500 mt-2">Temukan karakter AI publik yang dibuat oleh pengguna lain.</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all cursor-pointer shrink-0"
+                title="Kembali ke Daftar Chat"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Explore AI</h1>
+              <p className="text-gray-500 mt-1 text-xs sm:text-sm">Temukan dan jelajahi karakter AI publik buatan komunitas & Anda sendiri.</p>
+            </div>
           </div>
+
+          {/* Search bar */}
+          <div className="relative min-w-[240px]">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Cari karakter AI..."
+              className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-xs"
+            />
+            <svg className="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Filter Navigation Tabs */}
+        <div className="flex items-center gap-2 mb-6 border-b border-gray-200 pb-3">
+          <button
+            onClick={() => setActiveFilter("all")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeFilter === "all"
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            Semua ({exploreAgents.length})
+          </button>
+          <button
+            onClick={() => setActiveFilter("popular")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeFilter === "popular"
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            🔥 Terpopuler
+          </button>
+          <button
+            onClick={() => setActiveFilter("mine")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              activeFilter === "mine"
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            ✨ Buatan Saya ({myPublishedCount})
+          </button>
         </div>
 
         {isLoading ? (
@@ -136,19 +202,25 @@ export function ExploreView({ currentUser, onStartChat }: ExploreViewProps) {
               </div>
             ))}
           </div>
-        ) : exploreAgents.length === 0 ? (
+        ) : filteredAgents.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
             <div className="w-20 h-20 bg-indigo-50 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-gray-900">Belum Ada Karakter</h3>
-            <p className="text-gray-500 mt-1 mb-6">Jadilah yang pertama untuk membagikan karakter Anda ke Publik!</p>
+            <h3 className="text-lg font-bold text-gray-900">
+              {activeFilter === "mine" ? "Belum Ada Karakter yang Dipublikasikan" : "Tidak Ada Karakter Ditemukan"}
+            </h3>
+            <p className="text-gray-500 mt-1 mb-6 text-sm">
+              {activeFilter === "mine"
+                ? "Buka menu 'Contacts', pilih karakter Anda, lalu klik 'Publish' untuk membagikannya ke Explore."
+                : "Coba ubah kata kunci pencarian atau filter yang dipilih."}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {exploreAgents.map(agent => (
+            {filteredAgents.map(agent => (
               <div key={agent.id} className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center group">
                 <div className="relative mb-4">
                   {agent.avatar_url ? (
@@ -176,12 +248,18 @@ export function ExploreView({ currentUser, onStartChat }: ExploreViewProps) {
 
                 <h3 className="text-lg font-bold text-gray-900">{agent.name}</h3>
 
-                <div className="flex items-center gap-3 mt-2 mb-3">
-                  <div className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">
-                    Publik
-                  </div>
+                <div className="flex items-center gap-2 mt-2 mb-3">
+                  {agent.creator_id === currentUser?.id ? (
+                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                      ✨ Buatan Anda
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                      Publik
+                    </span>
+                  )}
                   <div className="flex items-center gap-1 text-xs text-gray-400">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 text-red-400" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                     </svg>
                     <span>{agent.likeCount || 0}</span>
@@ -207,7 +285,7 @@ export function ExploreView({ currentUser, onStartChat }: ExploreViewProps) {
                     }}
                     disabled={startingChatFor === agent.id}
                   >
-                    {startingChatFor === agent.id ? "⏳ Membuka Chat..." : "Mulai Chat Baru"}
+                    {startingChatFor === agent.id ? "⏳ Membuka Chat..." : "Mulai Chat"}
                   </Button>
                 </div>
               </div>

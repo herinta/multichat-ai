@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { login, signup } from './actions'
 import { Button } from '@/components/Modern/Button'
-import { Sparkles, ArrowLeft, Mail, Lock, User, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Sparkles, ArrowLeft, Mail, Lock, User, CheckCircle2, AlertCircle, KeyRound, Zap } from 'lucide-react'
 
 export function LoginFormContent({ initialMode }: { initialMode?: 'login' | 'register' }) {
   const router = useRouter()
@@ -15,9 +15,15 @@ export function LoginFormContent({ initialMode }: { initialMode?: 'login' | 'reg
   const [isLogin, setIsLogin] = useState<boolean>(
     initialMode ? initialMode === 'login' : paramMode !== 'register'
   )
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [username, setUsername] = useState('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  const DEMO_EMAIL = 'demo@multiai.com'
+  const DEMO_PASSWORD = 'demouser123'
 
   useEffect(() => {
     if (paramMode === 'register') {
@@ -26,6 +32,35 @@ export function LoginFormContent({ initialMode }: { initialMode?: 'login' | 'reg
       setIsLogin(true)
     }
   }, [paramMode])
+
+  const handleFillDemo = (autoLogin: boolean = false) => {
+    setIsLogin(true)
+    setEmail(DEMO_EMAIL)
+    setPassword(DEMO_PASSWORD)
+    setErrorMsg(null)
+    
+    if (autoLogin) {
+      setIsLoading(true)
+      const formData = new FormData()
+      formData.append('email', DEMO_EMAIL)
+      formData.append('password', DEMO_PASSWORD)
+      login(formData)
+        .then((res) => {
+          if (res?.error) {
+            setErrorMsg(res.error)
+            setIsLoading(false)
+          } else if (res?.success) {
+            window.location.href = '/'
+          }
+        })
+        .catch((err) => {
+          setErrorMsg(err instanceof Error ? err.message : 'Terjadi kesalahan tidak terduga.')
+          setIsLoading(false)
+        })
+    } else {
+      setSuccessMsg('Kredensial akun demo berhasil diisikan! Silakan klik "Masuk ke Akun" atau klik "Login Cepat Demo".')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -101,7 +136,7 @@ export function LoginFormContent({ initialMode }: { initialMode?: 'login' | 'reg
         </div>
 
         {/* Tab Switcher: Masuk vs Daftar */}
-        <div className="flex bg-blue-50/80 p-1 rounded-2xl mb-6 border border-blue-100/60">
+        <div className="flex bg-blue-50/80 p-1 rounded-2xl mb-5 border border-blue-100/60">
           <button
             type="button"
             onClick={() => {
@@ -132,6 +167,47 @@ export function LoginFormContent({ initialMode }: { initialMode?: 'login' | 'reg
           >
             Daftar (Register)
           </button>
+        </div>
+
+        {/* Demo Account Quick Access Card */}
+        <div className="mb-5 p-3.5 bg-gradient-to-r from-blue-50 via-indigo-50/60 to-cyan-50/70 border border-blue-200/80 rounded-2xl shadow-xs">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+              </span>
+              <span className="text-xs font-bold text-gray-900">Akun Demo Pengujian</span>
+            </div>
+            <span className="text-[10px] font-semibold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200">
+              demo@multiai.com
+            </span>
+          </div>
+          
+          <p className="text-[11px] text-gray-600 mb-3 leading-relaxed">
+            Ingin mencoba langsung tanpa mendaftar? Klik tombol di bawah untuk mengisi atau login otomatis.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleFillDemo(false)}
+              disabled={isLoading}
+              className="py-2 px-3 bg-white hover:bg-gray-50 text-blue-700 border border-blue-200 hover:border-blue-300 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs flex items-center justify-center gap-1.5 active:scale-[0.98]"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span>Isi Akun Demo</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFillDemo(true)}
+              disabled={isLoading}
+              className="py-2 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs shadow-blue-500/20 flex items-center justify-center gap-1.5 active:scale-[0.98]"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300 shrink-0" />
+              <span>Login Cepat Demo</span>
+            </button>
+          </div>
         </div>
 
         {/* Error Alert */}
@@ -165,6 +241,8 @@ export function LoginFormContent({ initialMode }: { initialMode?: 'login' | 'reg
                   id="username"
                   name="username"
                   type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   required={!isLogin}
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50/80 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
                   placeholder="Username Anda (misal: fajar_ai)"
@@ -185,6 +263,8 @@ export function LoginFormContent({ initialMode }: { initialMode?: 'login' | 'reg
                 id="email"
                 name="email"
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50/80 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"
                 placeholder="nama@email.com"
@@ -204,6 +284,8 @@ export function LoginFormContent({ initialMode }: { initialMode?: 'login' | 'reg
                 id="password"
                 name="password"
                 type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50/80 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all"

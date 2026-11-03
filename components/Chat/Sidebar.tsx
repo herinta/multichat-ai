@@ -37,8 +37,10 @@ export function Sidebar({
   const filteredRooms = rooms.filter(r => r.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
-    <aside className="w-80 flex-shrink-0 border-r border-gray-200 flex flex-col h-full z-10 bg-white shadow-sm">
-      <div className="p-4 border-b border-gray-100 flex flex-col gap-4">
+    <aside className={`w-full md:w-80 flex-shrink-0 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full z-10 bg-white dark:bg-gray-900 shadow-sm transition-all ${
+      activeChatId || activeView !== "chat" ? "hidden md:flex" : "flex"
+    }`}>
+      <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">Dashboard</h1>
           <div className="flex gap-2">

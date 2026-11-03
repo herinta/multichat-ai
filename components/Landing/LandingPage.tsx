@@ -17,11 +17,8 @@ import {
   Check,
   Layers,
   ChevronRight,
-  Volume2,
-  VolumeX,
-  RotateCcw,
-  Loader2,
-  Bot
+  Crown,
+  Lock
 } from 'lucide-react';
 import type { Variants } from 'motion/react';
 
@@ -96,7 +93,7 @@ const GlassCard = ({ children, className = "", delay = 0 }: GlassCardProps) => (
   <motion.div
     variants={revealVariants}
     transition={{ delay, duration: 0.8, ease: EASE_DREAM }}
-    className={`backdrop-blur-xl bg-white/70 dark:bg-gray-900/60 border border-white/80 dark:border-blue-500/20 shadow-[0_10px_35px_rgba(37,99,235,0.08)] rounded-3xl p-6 sm:p-8 ${className}`}
+    className={`backdrop-blur-xl bg-white/80 border border-white/90 shadow-[0_10px_35px_rgba(37,99,235,0.08)] rounded-3xl p-6 sm:p-8 ${className}`}
   >
     {children}
   </motion.div>
@@ -108,7 +105,7 @@ const ChatMockup = () => (
       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-md">
         N
       </div>
-      <div className="bg-white/80 dark:bg-gray-800/90 border border-blue-100 dark:border-gray-700 rounded-2xl rounded-bl-xs p-3 text-xs leading-relaxed text-gray-800 dark:text-gray-100 shadow-xs">
+      <div className="bg-white/90 border border-blue-100 rounded-2xl rounded-bl-xs p-3 text-xs leading-relaxed text-gray-800 shadow-xs">
         Hey! Gimana harimu hari ini? Cerita dong! ✨
       </div>
     </div>
@@ -124,7 +121,7 @@ const ChatMockup = () => (
       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex-shrink-0 flex items-center justify-center text-white text-xs font-bold shadow-md">
         K
       </div>
-      <div className="bg-white/80 dark:bg-gray-800/90 border border-blue-100 dark:border-gray-700 rounded-2xl rounded-bl-xs p-3 text-xs leading-relaxed text-gray-800 dark:text-gray-100 shadow-xs">
+      <div className="bg-white/90 border border-blue-100 rounded-2xl rounded-bl-xs p-3 text-xs leading-relaxed text-gray-800 shadow-xs">
         mantap lah, makan bareng gih ngerayain 🎉
       </div>
     </div>
@@ -144,11 +141,11 @@ const CallMockup = () => (
       </div>
     </div>
     <div className="mt-4 text-center">
-      <div className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-0.5">PANGGILAN AKTIF</div>
-      <div className="font-bold text-base text-gray-900 dark:text-gray-100">Kuro & Nofa</div>
+      <div className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 mb-0.5">PANGGILAN AKTIF</div>
+      <div className="font-bold text-base text-gray-900">Kuro & Nofa</div>
       <div className="flex items-center justify-center gap-1.5 mt-1.5">
         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Multi-Agent Call</span>
+        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Multi-Agent Call</span>
       </div>
     </div>
   </div>
@@ -163,74 +160,38 @@ export function LandingPage({
   onNavigateToLogin = () => window.location.href = '/login',
   onNavigateToRegister = () => window.location.href = '/register'
 }: LandingPageProps) {
+  const [selectedPreset, setSelectedPreset] = useState<'nofa' | 'kuro' | 'bambang'>('nofa');
   const [empathy, setEmpathy] = useState(85);
-  const [humor, setHumor] = useState(65);
-  const [gender, setGender] = useState('Female');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [previewText, setPreviewText] = useState<string | null>(null);
+  const [humor, setHumor] = useState(70);
 
-  const speakText = (text: string, voiceGender: string) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'id-ID';
-      utterance.pitch = voiceGender === 'Male' ? 0.9 : 1.15;
-      utterance.rate = 0.98;
-
-      // Select Indonesian voice if supported in browser
-      const voices = window.speechSynthesis.getVoices();
-      const idVoice = voices.find(v => v.lang.startsWith('id') || v.lang.includes('ID') || v.lang.toLowerCase().includes('indonesia'));
-      if (idVoice) {
-        utterance.voice = idVoice;
-      }
-
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
+  const presets = {
+    nofa: {
+      name: "Nofa (Tsundere Bestie)",
+      tag: "Judes tapi Perhatian",
+      avatarBg: "from-pink-500 to-rose-600",
+      initial: "N",
+      sample: "Dih, baru nongol kamu kemana aja sih? Bukannya aku nyariin ya... cuma tadi ada info penting buat kamu! 😤✨",
+      traits: ["Gengsian", "Sangat Peka", "Suka Kasih Perhatian Diam-diam"]
+    },
+    kuro: {
+      name: "Kuro (Chill Gamer Bro)",
+      tag: "Santai & Setia Kawan",
+      avatarBg: "from-blue-600 to-indigo-600",
+      initial: "K",
+      sample: "Yo bro! Santai dulu ga sih, gas push rank nanti malem apa mau kelarin tugas bareng dulu? Wkwk 🎮",
+      traits: ["Bahasa Gaul", "Humor Receh", "Ga Pernah Bikin Baper"]
+    },
+    bambang: {
+      name: "Pak Bambang (Mentor Santun)",
+      tag: "Bijak & Solutif",
+      avatarBg: "from-emerald-600 to-teal-700",
+      initial: "B",
+      sample: "Tenang saja, pelan-pelan asal konsisten. Jangan lupa istirahat ya, kesehatan itu aset paling berharga. ☕🌱",
+      traits: ["Sabar", "Analitis", "Pendengar Setia"]
     }
   };
 
-  const stopSpeaking = () => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    setIsSpeaking(false);
-  };
-
-  const tryPersona = async () => {
-    if (isGenerating) return;
-    if (isSpeaking) {
-      stopSpeaking();
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const res = await fetch('/api/voice-preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gender, empathy, humor }),
-      });
-      const data = await res.json();
-      const textToSpeak = data?.text || (gender === 'Male'
-        ? "Halo bro! Santai aja kali, gue siap nemenin ngobrol kapan aja."
-        : "Hai! Senang banget bisa ketemu kamu. Mau ngobrolin apa hari ini?");
-
-      setPreviewText(textToSpeak);
-      speakText(textToSpeak, gender);
-    } catch (err) {
-      console.error('Failed to generate voice preview via Gemini:', err);
-      const fallback = gender === 'Male'
-        ? "Halo bro! Santai aja kali, gue siap nemenin ngobrol kapan aja."
-        : "Hai! Senang banget bisa ketemu kamu. Mau ngobrolin apa hari ini?";
-      setPreviewText(fallback);
-      speakText(fallback, gender);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+  const activePersona = presets[selectedPreset];
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#F0F7FF] via-[#E8F1FF] to-[#D9EBFF] text-gray-900 font-sans selection:bg-blue-600 selection:text-white">
@@ -358,7 +319,7 @@ export function LandingPage({
             
             {/* Main Chat Card */}
             <GlassCard className="relative z-20 w-full max-w-sm">
-              <div className="flex items-center justify-between mb-4 pb-2 border-b border-blue-100 dark:border-gray-800">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-blue-100">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
                   <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700">Room: Tongkrongan AI</span>
@@ -429,7 +390,7 @@ export function LandingPage({
                 desc: "Jelajahi karakter buatan komunitas, beri like, dan mulai percakapan instan atau publikasikan karakter unik kreasi kamu sendiri."
               }
             ].map((f, i) => (
-              <GlassCard key={i} className="hover:-translate-y-1 transition-transform">
+              <GlassCard key={i} className="hover:-translate-y-1 transition-transform border-white/90 bg-white/80 shadow-[0_10px_35px_rgba(37,99,235,0.06)] hover:shadow-[0_16px_40px_rgba(37,99,235,0.12)]">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-md shadow-blue-500/25">
                   <f.icon className="text-white w-6 h-6" />
                 </div>
@@ -537,7 +498,7 @@ export function LandingPage({
               <div className="space-y-6">
                 {[
                   { title: "Matriks Kepribadian", desc: "Tentukan tingkat empati, humor, dan gaya ketikan bahasa gaul.", icon: Settings },
-                  { title: "Voice & Speech Engine", desc: "Pilih modulasi nada suara yang pas untuk setiap karakter.", icon: Volume2 },
+                  { title: "Gaya Bahasa & Slang", desc: "Kustomisasi kosakata gaul, panggilan akrab, dan tone percakapan.", icon: MessageCircle },
                   { title: "Konsolidasi Memori Otomatis", desc: "Pesan lama otomatis dirangkum menjadi ingatan jangka panjang permanen.", icon: Layers }
                 ].map((item, i) => (
                   <div key={i} className="flex gap-4 items-start">
@@ -553,12 +514,12 @@ export function LandingPage({
               </div>
             </div>
 
-            {/* Interactive Sliders Card in Blue */}
+            {/* Interactive Persona Studio Showcase (Visual Only) */}
             <GlassCard className="p-6 sm:p-8">
               <div className="flex items-center justify-between pb-4 mb-6 border-b border-blue-100">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-700">Simulator Suara Karakter (Gemini AI)</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-700">Studio Karakter & Persona (Gemini AI)</span>
                 </div>
                 <div className="flex items-center gap-1.5 bg-blue-500/10 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
@@ -567,24 +528,26 @@ export function LandingPage({
               </div>
 
               <div className="space-y-6">
-                {/* Gender Toggle */}
+                {/* Persona Preset Switcher */}
                 <div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2.5">Pilihan Gender Vokal</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {['Male', 'Female'].map((g) => (
+                  <div className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2.5">Pilih Contoh Persona Karakter</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: 'nofa' as const, label: 'Nofa', sub: 'Tsundere' },
+                      { key: 'kuro' as const, label: 'Kuro', sub: 'Chill Bro' },
+                      { key: 'bambang' as const, label: 'Bambang', sub: 'Mentor' }
+                    ].map((p) => (
                       <button
-                        key={g}
-                        onClick={() => {
-                          setGender(g);
-                          if (isSpeaking) stopSpeaking();
-                        }}
-                        className={`py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                          gender === g 
-                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25' 
-                            : 'bg-white/60 text-gray-600 border border-blue-100 hover:bg-white'
+                        key={p.key}
+                        onClick={() => setSelectedPreset(p.key)}
+                        className={`py-2 px-2 rounded-xl text-center transition-all cursor-pointer ${
+                          selectedPreset === p.key 
+                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]' 
+                            : 'bg-white/70 text-gray-700 border border-blue-100 hover:bg-white'
                         }`}
                       >
-                        {g === 'Male' ? 'Laki-laki (Cowok)' : 'Perempuan (Cewek)'}
+                        <div className="text-xs font-bold">{p.label}</div>
+                        <div className={`text-[10px] ${selectedPreset === p.key ? 'text-blue-100' : 'text-gray-400'}`}>{p.sub}</div>
                       </button>
                     ))}
                   </div>
@@ -593,7 +556,7 @@ export function LandingPage({
                 {/* Empathy Slider */}
                 <div>
                   <div className="flex justify-between text-xs font-bold text-gray-700 mb-2">
-                    <span>TINGKAT EMPATI</span>
+                    <span>TINGKAT EMPATI & PERHATIAN</span>
                     <span className="text-blue-600 font-extrabold">{empathy}%</span>
                   </div>
                   <input 
@@ -609,7 +572,7 @@ export function LandingPage({
                 {/* Humor Slider */}
                 <div>
                   <div className="flex justify-between text-xs font-bold text-gray-700 mb-2">
-                    <span>SENSE OF HUMOR (SANTAI)</span>
+                    <span>SENSE OF HUMOR & BAHASA GAUL</span>
                     <span className="text-indigo-600 font-extrabold">{humor}%</span>
                   </div>
                   <input 
@@ -622,92 +585,49 @@ export function LandingPage({
                   />
                 </div>
 
-                {/* Trait tags */}
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  {['Santai & Akrab', 'Respon Real-time', 'Gemini Native'].map((tag) => (
-                    <div key={tag} className="bg-blue-500/10 text-blue-700 border border-blue-200/60 py-1.5 rounded-lg text-center text-[11px] font-bold">
-                      {tag}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Gemini Spoken Line Display */}
-                {previewText && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-cyan-500/10 border border-blue-200 shadow-xs"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="flex h-2 w-2 relative">
-                          {isSpeaking && (
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                          )}
-                          <span className={`relative inline-flex rounded-full h-2 w-2 ${isSpeaking ? 'bg-blue-600' : 'bg-gray-400'}`}></span>
-                        </span>
-                        <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1">
-                          <Bot className="w-3.5 h-3.5 text-blue-600" />
-                          Gemini 3.5 Spoken Greeting
-                        </span>
-                      </div>
-                      
-                      {/* Audio visualizer wave */}
-                      {isSpeaking && (
-                        <div className="flex items-end gap-1 h-3.5" title="Sedang memutar suara...">
-                          <span className="w-1 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s] h-3"></span>
-                          <span className="w-1 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.15s] h-4"></span>
-                          <span className="w-1 bg-cyan-600 rounded-full animate-bounce h-2.5"></span>
-                          <span className="w-1 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.25s] h-3.5"></span>
-                        </div>
-                      )}
-                    </div>
-
-                    <p className="text-sm font-semibold text-gray-800 italic leading-snug">
-                      &ldquo;{previewText}&rdquo;
-                    </p>
-
-                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-blue-200/60 text-[10px] text-gray-600">
-                      <span>{gender === 'Male' ? 'Vokal Laki-laki' : 'Vokal Perempuan'} • Empati {empathy}% • Humor {humor}%</span>
-                      {!isGenerating && (
-                        <button
-                          type="button"
-                          onClick={() => speakText(previewText, gender)}
-                          className="text-blue-700 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <RotateCcw className="w-3 h-3" /> Putar Ulang
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Try Persona Audio Button */}
-                <button 
-                  onClick={tryPersona}
-                  disabled={isGenerating}
-                  className={`w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer ${
-                    isSpeaking
-                      ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/30'
-                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/30'
-                  }`}
+                {/* Persona Preview Live Bubble */}
+                <motion.div 
+                  key={selectedPreset}
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-cyan-500/10 border border-blue-200 shadow-xs"
                 >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Gemini Merangkai Kata...</span>
-                    </>
-                  ) : isSpeaking ? (
-                    <>
-                      <VolumeX className="w-4 h-4" />
-                      <span>Hentikan Suara Karakter</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>TES SUARA DENGAN GEMINI</span>
-                    </>
-                  )}
+                  <div className="flex items-center justify-between mb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${activePersona.avatarBg} text-white text-xs font-bold flex items-center justify-center shadow-xs`}>
+                        {activePersona.initial}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-900 block leading-tight">{activePersona.name}</span>
+                        <span className="text-[10px] text-blue-600 font-semibold">{activePersona.tag}</span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full border border-blue-200">
+                      Sample Dialogue
+                    </span>
+                  </div>
+
+                  <p className="text-sm font-semibold text-gray-800 leading-snug my-2 bg-white/70 p-3 rounded-xl border border-blue-100/80">
+                    &ldquo;{activePersona.sample}&rdquo;
+                  </p>
+
+                  <div className="flex flex-wrap gap-1.5 pt-2 border-t border-blue-200/50">
+                    {activePersona.traits.map((t) => (
+                      <span key={t} className="text-[10px] font-bold bg-white/90 text-gray-600 px-2 py-0.5 rounded-md border border-blue-100">
+                        ✨ {t}
+                      </span>
+                    ))}
+                  </div>
+                </motion.div>
+
+                {/* Direct CTA */}
+                <button 
+                  onClick={onNavigateToRegister}
+                  className="w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-blue-500/30"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Buat Karakter Seperti Ini (Gratis)</span>
                 </button>
               </div>
             </GlassCard>
@@ -718,46 +638,132 @@ export function LandingPage({
         {/* Pricing / Access Section */}
         <section id="pricing" className="mt-36 mb-24">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <div className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-2">AKSES SEPENUHNYA</div>
+            <div className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-2">PILIHAN PAKET & AKSES</div>
             <h2 className="text-3xl sm:text-5xl font-extrabold text-gray-900 tracking-tight">
-              Nikmati Seluruh Fitur Tanpa Batas.
+              Mulai Gratis, Upgrade Kapan Saja.
             </h2>
+            <p className="text-base text-gray-600 mt-4 leading-relaxed">
+              Nikmati kebebasan berinteraksi dengan multi-agen AI secara gratis, atau bersiap untuk pengalaman tingkat lanjut dengan Paket Pro.
+            </p>
           </div>
 
-          <div className="max-w-xl mx-auto">
-            <GlassCard className="relative border-2 border-blue-500/40 shadow-2xl shadow-blue-500/15 p-8 text-center">
-              <div className="inline-block bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-[11px] font-extrabold px-4 py-1.5 rounded-full uppercase tracking-wider mb-6 shadow-md shadow-blue-500/30">
-                Free & Open Access
-              </div>
+          <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+            
+            {/* Free Tier Card */}
+            <GlassCard className="relative border-2 border-blue-200/90 bg-white/85 shadow-xl shadow-blue-500/5 p-8 sm:p-10 flex flex-col justify-between hover:border-blue-400/80 transition-all">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 text-xs font-extrabold px-3.5 py-1.5 rounded-full border border-blue-200">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600" /> STARTER
+                  </span>
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                    Akses Langsung
+                  </span>
+                </div>
 
-              <div className="text-5xl font-extrabold text-gray-900 mb-2">Gratis 100%</div>
-              <p className="text-sm text-gray-500 mb-8">Didukung langsung oleh Google Gemini & Supabase Realtime</p>
+                <div className="mb-6">
+                  <h3 className="text-2xl font-extrabold text-gray-900">Gratis Selamanya</h3>
+                  <p className="text-sm text-gray-500 mt-1">Sempurna untuk chat harian, voice call kasual, dan eksplorasi circle AI.</p>
+                </div>
 
-              <div className="space-y-3.5 text-left mb-8 max-w-md mx-auto">
-                {[
-                  "Chat multi-agen di satu room tanpa batas",
-                  "Panggilan suara (Voice Call) 1-on-1 & Call Grup",
-                  "AI inisiatif chat duluan otomatis",
-                  "Anti-prompt injection bergaya bahasa manusia gaul",
-                  "Memori permanen lintas room & konsolidasi jangka panjang",
-                  "Dapat diinstall di layar utama HP (PWA)"
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm font-semibold text-gray-800">
-                    <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0">
-                      <Check className="w-3.5 h-3.5" />
+                <div className="flex items-baseline gap-1.5 mb-8 pb-6 border-b border-blue-100">
+                  <span className="text-5xl font-extrabold text-gray-900">$0</span>
+                  <span className="text-gray-500 font-semibold text-sm">/ bulan (100% Free)</span>
+                </div>
+
+                <div className="space-y-3.5 text-left mb-8">
+                  {[
+                    "Chat multi-agen di satu room tanpa batas",
+                    "Panggilan suara (Voice Call) 1-on-1 & Call Grup",
+                    "AI inisiatif chat duluan otomatis",
+                    "Anti-prompt injection bahasa gaul",
+                    "Memori percakapan & rangkuman telepon",
+                    "Install di layar HP & Desktop (PWA)",
+                    "Dukungan Gemini 3.5 Flash"
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm font-semibold text-gray-700">
+                      <div className="w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                      {item}
                     </div>
-                    {item}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
               <button
                 onClick={onNavigateToRegister}
-                className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full font-bold text-base shadow-lg shadow-blue-600/30 hover:from-blue-700 hover:to-indigo-700 transition-all active:scale-98 cursor-pointer"
+                className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold text-base shadow-lg shadow-blue-600/25 hover:from-blue-700 hover:to-indigo-700 transition-all active:scale-98 cursor-pointer flex items-center justify-center gap-2"
               >
-                Buat Akun Gratis Sekarang (Daftar)
+                <span>Mulai Gratis Sekarang</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
             </GlassCard>
+
+            {/* Pro Tier Card ($10 - Coming Soon) */}
+            <GlassCard className="relative border-2 border-indigo-400/60 bg-gradient-to-b from-white/95 via-blue-50/40 to-indigo-50/50 shadow-2xl shadow-indigo-500/10 p-8 sm:p-10 flex flex-col justify-between overflow-hidden">
+              
+              {/* Coming Soon Top Pill Badge */}
+              <div className="absolute top-0 right-0">
+                <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[11px] font-black uppercase tracking-wider px-4 py-1.5 rounded-bl-2xl shadow-md flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 fill-white" /> COMING SOON
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-indigo-500/15 to-purple-500/15 text-indigo-700 text-xs font-extrabold px-3.5 py-1.5 rounded-full border border-indigo-200">
+                    <Crown className="w-3.5 h-3.5 text-indigo-600" /> PRO MEMBER
+                  </span>
+                </div>
+
+                <div className="mb-6">
+                  <h3 className="text-2xl font-extrabold text-gray-900 flex items-center gap-2">
+                    Pro Plan
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700 border border-indigo-200">
+                      Ultimate
+                    </span>
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">Didesain untuk power-user, kreasi persona tingkat lanjut & performa maksimal.</p>
+                </div>
+
+                <div className="flex items-baseline gap-2 mb-8 pb-6 border-b border-indigo-100">
+                  <span className="text-5xl font-extrabold text-indigo-950">$10</span>
+                  <span className="text-gray-500 font-semibold text-sm">/ bulan (~Rp 150.000)</span>
+                </div>
+
+                <div className="space-y-3.5 text-left mb-8">
+                  {[
+                    "Semua keuntungan di Paket Starter",
+                    "Akses Model Flagship Gemini 1.5 Pro & Ultra",
+                    "Voice Call Ultra-Low Latency & Custom Voice Cloning",
+                    "Unlimited AI Character Studio & Kustom Persona Mendalam",
+                    "Long-Term Deep Memory Sync & Infinite Knowledge Base",
+                    "Prioritas Antrian Server & Response Time 2x Lebih Cepat",
+                    "Kustom Tema Ruang Obrolan & Akses Eksklusif Fitur Baru"
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm font-semibold text-gray-800">
+                      <div className="w-5 h-5 bg-gradient-to-br from-indigo-600 to-blue-600 text-white rounded-full flex items-center justify-center shrink-0 shadow-xs">
+                        <Check className="w-3.5 h-3.5" />
+                      </div>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  disabled
+                  className="w-full py-4 bg-gray-100/90 border border-gray-200 text-gray-500 rounded-2xl font-bold text-base flex items-center justify-center gap-2 cursor-not-allowed shadow-xs"
+                >
+                  <Lock className="w-4 h-4 text-amber-500" />
+                  <span>Paket Pro Segera Hadir</span>
+                </button>
+                <p className="text-center text-xs text-gray-400 mt-2.5 font-medium">Fitur sedang dalam tahap finalisasi & rilis segera.</p>
+              </div>
+            </GlassCard>
+
           </div>
         </section>
 

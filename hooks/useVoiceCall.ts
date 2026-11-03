@@ -17,12 +17,124 @@ export interface CallTurn {
   timestamp: number;
 }
 
+// Web Audio API Ringtone Generator for realistic outgoing phone call sound
+class OutgoingRingtonePlayer {
+  private audioCtx: AudioContext | null = null;
+  private intervalId: any = null;
+  private isPlaying = false;
+
+  start() {
+    if (typeof window === 'undefined') return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      this.audioCtx = new AudioContextClass();
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
+      this.isPlaying = true;
+
+      // Play first ring instantly
+      this.playSingleRing();
+
+      // Repeat ring tone every 3.2 seconds (1.2s ring tone + 2.0s silence)
+      this.intervalId = setInterval(() => {
+        if (!this.isPlaying) return;
+        this.playSingleRing();
+      }, 3200);
+    } catch (e) {
+      console.warn('Outgoing ringtone init failed:', e);
+    }
+  }
+
+  private playSingleRing() {
+    if (!this.audioCtx || !this.isPlaying) return;
+    try {
+      const ctx = this.audioCtx;
+      const now = ctx.currentTime;
+
+      // Dual-frequency harmonic sine waves (440Hz + 480Hz) for authentic dial tone
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(440, now);
+
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(480, now);
+
+      // Smooth attack and release envelope
+      gainNode.gain.setValueAtTime(0.0001, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.12, now + 0.08);
+      gainNode.gain.setValueAtTime(0.12, now + 1.15);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 1.25);
+
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+
+      osc1.stop(now + 1.3);
+      osc2.stop(now + 1.3);
+    } catch (e) {
+      console.warn('Ring pulse failed:', e);
+    }
+  }
+
+  stop() {
+    this.isPlaying = false;
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    if (this.audioCtx) {
+      try {
+        this.audioCtx.close();
+      } catch (_) {}
+      this.audioCtx = null;
+    }
+  }
+}
+
+function playPickupChime() {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, now); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.12); // A5
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.15, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.25);
+    setTimeout(() => {
+      try { ctx.close(); } catch (_) {}
+    }, 350);
+  } catch (_) {}
+}
+
 interface UseVoiceCallOptions {
   onCallEnded?: (summary: string) => void;
 }
 
 export function useVoiceCall(options: UseVoiceCallOptions = {}) {
   const [isCallActive, setIsCallActive] = useState(false);
+  const [isRinging, setIsRinging] = useState(false);
   const [activeRoom, setActiveRoom] = useState<Room | null>(null);
   const [participants, setParticipants] = useState<CallParticipant[]>([]);
   const [durationSeconds, setDurationSeconds] = useState(0);
@@ -34,9 +146,13 @@ export function useVoiceCall(options: UseVoiceCallOptions = {}) {
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [isEndingCall, setIsEndingCall] = useState(false);
 
+  const ringtonePlayerRef = useRef<OutgoingRingtonePlayer | null>(null);
+  const ringingTimeoutRef = useRef<any>(null);
+  const aiSpeakingTimeoutRef = useRef<any>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
-  const synthRef = useRef<SpeechSynthesis | null>(null);
   const isCallActiveRef = useRef(false);
+  const isRingingRef = useRef(false);
   const isMicMutedRef = useRef(false);
   const isDeafenedRef = useRef(false);
   const isAiSpeakingRef = useRef(false);
@@ -49,6 +165,10 @@ export function useVoiceCall(options: UseVoiceCallOptions = {}) {
   useEffect(() => {
     isCallActiveRef.current = isCallActive;
   }, [isCallActive]);
+
+  useEffect(() => {
+    isRingingRef.current = isRinging;
+  }, [isRinging]);
 
   useEffect(() => {
     isMicMutedRef.current = isMicMuted;
@@ -66,85 +186,107 @@ export function useVoiceCall(options: UseVoiceCallOptions = {}) {
     activeRoomRef.current = activeRoom;
   }, [activeRoom]);
 
-  // Call timer interval
+  // Call timer interval (only increments once call is answered and !isRinging)
   useEffect(() => {
     let timer: any = null;
-    if (isCallActive) {
+    if (isCallActive && !isRinging) {
       timer = setInterval(() => {
         setDurationSeconds(prev => prev + 1);
       }, 1000);
-    } else {
+    } else if (!isCallActive) {
       setDurationSeconds(0);
     }
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isCallActive]);
+  }, [isCallActive, isRinging]);
 
-  // Initialize SpeechSynthesis
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      synthRef.current = window.speechSynthesis;
-    }
-  }, []);
-
-  // Speak AI text using Web Speech Synthesis with per-agent pitch/rate tuning
-  const speakAiTurn = useCallback((agent: Agent, text: string): Promise<void> => {
+  // AI turn handling (Native Gemini Voice Audio Playback + Subtitles)
+  const speakAiTurn = useCallback((agent: Agent, text: string, audioBase64?: string): Promise<void> => {
     return new Promise((resolve) => {
-      if (!synthRef.current || isDeafenedRef.current || !isCallActiveRef.current) {
+      if (!isCallActiveRef.current || isEndingCallRef.current) {
         resolve();
         return;
       }
 
-      // Stop recognition while AI speaks to avoid microphone feedback
+      // Stop mic recognition while AI speaks to avoid microphone feedback
       if (recognitionRef.current) {
         try { recognitionRef.current.abort(); } catch (_) {}
+      }
+
+      if (aiSpeakingTimeoutRef.current) {
+        clearTimeout(aiSpeakingTimeoutRef.current);
+        aiSpeakingTimeoutRef.current = null;
+      }
+
+      if (activeAudioRef.current) {
+        try {
+          activeAudioRef.current.pause();
+          activeAudioRef.current = null;
+        } catch (_) {}
       }
 
       isAiSpeakingRef.current = true;
       setActiveSpeakerId(agent.id);
       setCurrentSubtitle({ speakerName: agent.name, text });
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'id-ID';
+      // If authentic Gemini Audio WAV is present and not deafened, play it directly!
+      if (audioBase64 && !isDeafenedRef.current) {
+        try {
+          const audio = new Audio("data:audio/wav;base64," + audioBase64);
+          activeAudioRef.current = audio;
 
-      // Pick Indonesian voice if available
-      const voices = synthRef.current.getVoices();
-      const idVoice = voices.find(v => v.lang.startsWith('id') || v.lang.includes('ID'));
-      if (idVoice) {
-        utterance.voice = idVoice;
+          audio.onended = () => {
+            isAiSpeakingRef.current = false;
+            setActiveSpeakerId(null);
+            activeAudioRef.current = null;
+
+            setTimeout(() => {
+              if (!isAiSpeakingRef.current) {
+                setCurrentSubtitle(null);
+              }
+              startListening();
+              resolve();
+            }, 400);
+          };
+
+          audio.onerror = (e) => {
+            console.warn("Gemini audio playback error, falling back to timed subtitles:", e);
+            fallbackTimer();
+          };
+
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((err) => {
+              console.warn("Audio autoplay blocked or interrupted:", err);
+              fallbackTimer();
+            });
+          }
+          return;
+        } catch (e) {
+          console.warn("Audio init failed:", e);
+        }
       }
 
-      // Modulate voice pitch and rate based on agent's name hash
-      const charSum = agent.name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-      const pitchVariance = (charSum % 5) * 0.08; // 0.00 to 0.32
-      const isHigherVoice = charSum % 2 === 0;
-      utterance.pitch = isHigherVoice ? 1.05 + pitchVariance : 0.9 - (pitchVariance * 0.5);
-      utterance.rate = 1.02;
+      // Fallback timer when audio is unavailable or muted/deafened
+      function fallbackTimer() {
+        const speechDurationMs = Math.min(5500, Math.max(2200, text.length * 65));
+        aiSpeakingTimeoutRef.current = setTimeout(() => {
+          isAiSpeakingRef.current = false;
+          setActiveSpeakerId(null);
+          aiSpeakingTimeoutRef.current = null;
 
-      utterance.onend = () => {
-        isAiSpeakingRef.current = false;
-        setActiveSpeakerId(null);
-        setTimeout(() => {
-          if (!isAiSpeakingRef.current) {
-            setCurrentSubtitle(null);
-          }
-          // Resume speech recognition after AI finishes speaking
-          startListening();
-          resolve();
-        }, 400);
-      };
+          setTimeout(() => {
+            if (!isAiSpeakingRef.current) {
+              setCurrentSubtitle(null);
+            }
+            startListening();
+            resolve();
+          }, 500);
+        }, speechDurationMs);
+      }
 
-      utterance.onerror = (e) => {
-        console.warn("TTS error or cancelled:", e);
-        isAiSpeakingRef.current = false;
-        setActiveSpeakerId(null);
-        setCurrentSubtitle(null);
-        startListening();
-        resolve();
-      };
-
-      synthRef.current.speak(utterance);
+      fallbackTimer();
     });
   }, []);
 
@@ -185,8 +327,8 @@ export function useVoiceCall(options: UseVoiceCallOptions = {}) {
         consecutiveAiTurnsRef.current += 1;
         setIsAiThinking(false);
 
-        // Speak the text
-        await speakAiTurn(data.agent, data.text);
+        // Speak the text with native Gemini voice audio
+        await speakAiTurn(data.agent, data.text, data.audioBase64);
 
         // If another AI agent in group call should naturally chime in
         if (data.shouldFollowUp && data.nextSuggestedAgentId && consecutiveAiTurnsRef.current < 2 && isCallActiveRef.current) {
@@ -300,15 +442,6 @@ export function useVoiceCall(options: UseVoiceCallOptions = {}) {
     setTranscript([]);
     consecutiveAiTurnsRef.current = 0;
 
-    // Mobile Audio Warmup: unlock audio playback on direct user click gesture for iOS/Android
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.resume();
-        const silentUnlock = new SpeechSynthesisUtterance('');
-        window.speechSynthesis.speak(silentUnlock);
-      } catch (_) {}
-    }
-
     // Build participants list: User + Room Agents
     const partList: CallParticipant[] = [
       {
@@ -329,8 +462,40 @@ export function useVoiceCall(options: UseVoiceCallOptions = {}) {
     ];
     setParticipants(partList);
 
-    // Initial greeting from one of the agents after 1 second
-    setTimeout(() => {
+    // Start Ringtone & Ringing status
+    setIsRinging(true);
+    isRingingRef.current = true;
+
+    // Play outgoing dial ringtone via Web Audio API
+    try {
+      if (ringtonePlayerRef.current) {
+        ringtonePlayerRef.current.stop();
+      }
+      const ringtone = new OutgoingRingtonePlayer();
+      ringtonePlayerRef.current = ringtone;
+      ringtone.start();
+    } catch (e) {
+      console.warn("Could not start ringtone:", e);
+    }
+
+    // Clean any previous ringing timeout
+    if (ringingTimeoutRef.current) {
+      clearTimeout(ringingTimeoutRef.current);
+    }
+
+    // Initial greeting from one of the agents after realistic ringing duration (2.6 seconds)
+    ringingTimeoutRef.current = setTimeout(() => {
+      if (!isCallActiveRef.current) return;
+
+      // Stop ringtone and play pickup chime
+      if (ringtonePlayerRef.current) {
+        ringtonePlayerRef.current.stop();
+        ringtonePlayerRef.current = null;
+      }
+      setIsRinging(false);
+      isRingingRef.current = false;
+      playPickupChime();
+
       if (isCallActiveRef.current && room.members.length > 0) {
         const firstAgent = room.members[0];
         // Trigger initial pickup greeting
@@ -338,7 +503,7 @@ export function useVoiceCall(options: UseVoiceCallOptions = {}) {
       } else {
         startListening();
       }
-    }, 1000);
+    }, 2600);
   }, [requestAiTurn, startListening]);
 
   // End Call
@@ -347,12 +512,28 @@ export function useVoiceCall(options: UseVoiceCallOptions = {}) {
     setIsEndingCall(true);
     isEndingCallRef.current = true;
 
-    // Stop recognition & synthesis
+    // Stop ringtone if still ringing
+    if (ringtonePlayerRef.current) {
+      ringtonePlayerRef.current.stop();
+      ringtonePlayerRef.current = null;
+    }
+    if (ringingTimeoutRef.current) {
+      clearTimeout(ringingTimeoutRef.current);
+      ringingTimeoutRef.current = null;
+    }
+    if (activeAudioRef.current) {
+      try {
+        activeAudioRef.current.pause();
+        activeAudioRef.current = null;
+      } catch (_) {}
+    }
+    setIsRinging(false);
+    isRingingRef.current = false;
+    isAiSpeakingRef.current = false;
+
+    // Stop recognition
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch (_) {}
-    }
-    if (synthRef.current) {
-      synthRef.current.cancel();
     }
 
     const currentDuration = durationSeconds;
@@ -411,8 +592,18 @@ export function useVoiceCall(options: UseVoiceCallOptions = {}) {
   const toggleDeafen = useCallback(() => {
     setIsDeafened(prev => {
       const next = !prev;
-      if (next && synthRef.current) {
-        synthRef.current.cancel();
+      if (next) {
+        if (activeAudioRef.current) {
+          try {
+            activeAudioRef.current.pause();
+            activeAudioRef.current = null;
+          } catch (_) {}
+        }
+        if (aiSpeakingTimeoutRef.current) {
+          clearTimeout(aiSpeakingTimeoutRef.current);
+          aiSpeakingTimeoutRef.current = null;
+        }
+        isAiSpeakingRef.current = false;
         setActiveSpeakerId(null);
         setCurrentSubtitle(null);
       }
@@ -422,6 +613,7 @@ export function useVoiceCall(options: UseVoiceCallOptions = {}) {
 
   return {
     isCallActive,
+    isRinging,
     activeRoom,
     participants,
     durationSeconds,

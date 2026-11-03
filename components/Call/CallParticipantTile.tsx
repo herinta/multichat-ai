@@ -5,17 +5,25 @@ interface CallParticipantTileProps {
   participant: CallParticipant;
   isSpeaking: boolean;
   isAiThinking?: boolean;
+  isRinging?: boolean;
 }
 
-export function CallParticipantTile({ participant, isSpeaking, isAiThinking = false }: CallParticipantTileProps) {
+export function CallParticipantTile({ 
+  participant, 
+  isSpeaking, 
+  isAiThinking = false,
+  isRinging = false 
+}: CallParticipantTileProps) {
   return (
     <div className={`relative flex flex-col items-center justify-center p-6 rounded-3xl transition-all duration-300 ${
       isSpeaking
         ? 'bg-emerald-500/10 border-2 border-emerald-400/80 shadow-[0_0_30px_rgba(52,211,153,0.25)]'
+        : isRinging && participant.isAi
+        ? 'bg-amber-500/10 border border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]'
         : 'bg-white/5 border border-white/10 hover:border-white/20'
     } backdrop-blur-md`}>
       
-      {/* Avatar Container with Active Speaker Pulse */}
+      {/* Avatar Container with Active Speaker or Ringing Pulse */}
       <div className="relative mb-4">
         {isSpeaking && (
           <>
@@ -24,8 +32,19 @@ export function CallParticipantTile({ participant, isSpeaking, isAiThinking = fa
           </>
         )}
 
+        {isRinging && participant.isAi && (
+          <>
+            <span className="absolute -inset-3 rounded-full bg-amber-400/25 animate-ping" />
+            <span className="absolute -inset-1.5 rounded-full bg-amber-400/30 animate-pulse" />
+          </>
+        )}
+
         <div className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden flex items-center justify-center bg-gray-800 transition-transform duration-200 ${
-          isSpeaking ? 'scale-105 ring-4 ring-emerald-400' : 'ring-2 ring-white/10'
+          isSpeaking 
+            ? 'scale-105 ring-4 ring-emerald-400' 
+            : isRinging && participant.isAi
+            ? 'ring-4 ring-amber-400/80 animate-pulse'
+            : 'ring-2 ring-white/10'
         }`}>
           {participant.avatar_url ? (
             <img
@@ -74,7 +93,7 @@ export function CallParticipantTile({ participant, isSpeaking, isAiThinking = fa
         )}
       </div>
 
-      {/* Live Speaking Audio Waves Indicator */}
+      {/* Live Audio / Status Indicator */}
       <div className="h-4 flex items-center justify-center gap-1 mt-2">
         {isSpeaking ? (
           <>
@@ -84,6 +103,10 @@ export function CallParticipantTile({ participant, isSpeaking, isAiThinking = fa
             <span className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.6s_infinite_150ms] h-4" />
             <span className="w-1 bg-emerald-400 rounded-full animate-[bounce_0.6s_infinite_250ms] h-3" />
           </>
+        ) : isRinging && participant.isAi ? (
+          <span className="text-xs text-amber-400 font-semibold animate-pulse">
+            Memanggil...
+          </span>
         ) : (
           <span className="text-xs text-gray-400">
             {participant.isAi && isAiThinking ? "Sedang berpikir..." : "Diam"}

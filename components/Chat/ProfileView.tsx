@@ -20,6 +20,7 @@ interface ProfileViewProps {
   onDeletePersona: (id: string) => void;
   onOpenSettings: () => void;
   onLogout?: () => void;
+  onBack?: () => void;
 }
 
 export function ProfileView({
@@ -34,7 +35,8 @@ export function ProfileView({
   onAddPersona,
   onDeletePersona,
   onOpenSettings,
-  onLogout
+  onLogout,
+  onBack
 }: ProfileViewProps) {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<"karakter" | "menyukai" | "persona">("persona");
@@ -76,8 +78,19 @@ export function ProfileView({
   const username = userEmail ? userEmail.split('@')[0] : 'User';
 
   return (
-    <div className="flex-1 flex flex-col p-8 overflow-y-auto w-full max-w-5xl mx-auto">
-      <div className="w-full flex flex-col items-center mt-10">
+    <div className="flex-1 flex flex-col p-4 sm:p-8 overflow-y-auto w-full max-w-5xl mx-auto relative">
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="md:hidden self-start p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all cursor-pointer mb-2"
+          title="Kembali ke Daftar Chat"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
+      <div className="w-full flex flex-col items-center mt-2 sm:mt-6">
         
         {/* Profile Header */}
         <div className="w-24 h-24 bg-[#8C523B] rounded-full flex items-center justify-center text-4xl font-bold mb-4 shadow-lg border-2 border-[#2A2A2A]">

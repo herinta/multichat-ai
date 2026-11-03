@@ -194,6 +194,12 @@ Tabel-tabel yang aktif digunakan di Supabase:
 * **Background Gambar Futuristik untuk Halaman Login & Register**:
   * Wallpaper digital cyber glass realm beresolusi tinggi (`/auth-bg.jpg`) yang dihasilkan khusus untuk Multi-AI dengan tema deep royal blue, luminous cyan circuits, dan arsitektur kaca transparan.
   * Kartu formulir Masuk dan Daftar mengambang di atasnya dengan efek *frosted glassmorphism* transparan ultra-elegan (`backdrop-blur-2xl bg-white/95`) dan ambient vignette untuk menjaga keterbacaan teks.
+* **Fitur Quick Demo Login & Auto-Fill Akun Demo**:
+  * Kartu *Quick Access* akun demo di halaman login & register (`app/login/page.tsx`).
+  * Menyediakan 2 tombol aksi:
+    1. **"Isi Akun Demo"**: Mengisi formulir email (`demo@multiai.com`) dan kata sandi (`demouser123`) secara otomatis serta mengalihkan ke tab Masuk jika pengguna sedang berada di tab Daftar.
+    2. **"⚡ Login Cepat Demo"**: Mengisikan kredensial sekaligus memproses login 1-klik secara instan ke dashboard.
+  * Akun demo telah disiapkan dengan data awal (kamar obrolan privat dengan *Nofa* dan obrolan grup dengan *Nofa & Python Master*) untuk kemudahan presentasi dan pengujian langsung.
 
 ### I. Gemini Voice Preview Simulator di Landing Page
 * **Public Endpoint `/api/voice-preview`**:

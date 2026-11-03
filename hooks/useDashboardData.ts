@@ -168,13 +168,20 @@ export function useDashboardData(initialUser?: any) {
   const handlePublishAgent = async (agentId: string, description: string): Promise<boolean> => {
     if (!user) return false;
     try {
-      const { error } = await supabase.from('agents').update({
-        is_public: true,
-        description: description,
-        creator_id: user.id
-      }).eq('id', agentId);
-      
-      if (error) throw error;
+      const res = await fetch('/api/agent/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentId, description })
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to publish agent via API");
+      }
+
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || "Publish failed");
+      }
       
       // Update local state to reflect publish status
       setRooms(prev => prev.map(r => ({
@@ -263,7 +270,7 @@ export function useDashboardData(initialUser?: any) {
     }
   };
 
-  const handleCreateContact = async (name: string, system_prompt: string, avatar_url?: string) => {
+  const handleCreateContact = async (name: string, system_prompt: string, avatar_url?: string, is_public: boolean = true, description?: string) => {
     try {
       const { data, error } = await supabase.from('agents').insert({
         name,
@@ -271,7 +278,8 @@ export function useDashboardData(initialUser?: any) {
         role: "assistant",
         avatar_url,
         creator_id: user?.id,
-        is_public: false
+        is_public,
+        description: description || system_prompt
       }).select().single();
       if (error) throw error;
       

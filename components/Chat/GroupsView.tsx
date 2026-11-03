@@ -5,20 +5,34 @@ interface GroupsViewProps {
   rooms: Room[];
   onSelectRoom: (roomId: string) => void;
   onNewGroup: () => void;
+  onBack?: () => void;
 }
 
-export function GroupsView({ rooms, onSelectRoom, onNewGroup }: GroupsViewProps) {
+export function GroupsView({ rooms, onSelectRoom, onNewGroup, onBack }: GroupsViewProps) {
   const groupRooms = rooms.filter(r => r.type === "group");
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50/50 p-8 overflow-y-auto">
+    <div className="flex-1 flex flex-col bg-gray-50/50 p-4 sm:p-8 overflow-y-auto">
       <div className="max-w-5xl w-full mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Groups</h1>
-            <p className="text-gray-500 mt-2">Manage your multi-AI chat rooms.</p>
+        <div className="flex items-center justify-between mb-6 sm:mb-8">
+          <div className="flex items-center gap-3">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all cursor-pointer"
+                title="Kembali ke Daftar Chat"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Groups</h1>
+              <p className="text-gray-500 mt-1 text-xs sm:text-sm">Manage your multi-AI chat rooms.</p>
+            </div>
           </div>
-          <Button onClick={onNewGroup} variant="primary" className="shadow-sm">
+          <Button onClick={onNewGroup} variant="primary" className="shadow-sm text-xs sm:text-sm">
             + Create Group
           </Button>
         </div>

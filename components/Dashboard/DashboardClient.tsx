@@ -109,6 +109,7 @@ export function DashboardClient({ initialUser }: { initialUser: any }) {
 
   const {
     isCallActive,
+    isRinging,
     activeRoom: callRoom,
     participants: callParticipants,
     durationSeconds: callDuration,
@@ -182,6 +183,11 @@ export function DashboardClient({ initialUser }: { initialUser: any }) {
   if (theme === "blue") themeClasses = "bg-blue-950 text-blue-50";
   if (theme === "sunset") themeClasses = "bg-gradient-to-br from-orange-50 to-rose-50 text-rose-900";
 
+  const handleBackToSidebar = () => {
+    setActiveChatId(null);
+    setActiveView("chat");
+  };
+
   return (
     <div className={`flex h-screen w-full overflow-hidden font-sans ${themeClasses}`}>
       <Sidebar 
@@ -218,6 +224,7 @@ export function DashboardClient({ initialUser }: { initialUser: any }) {
               toast.error("Gagal membuat chat. Coba lagi.");
             }
           }}
+          onBack={handleBackToSidebar}
         />
       ) : activeView === "explore" ? (
         <ExploreView 
@@ -239,6 +246,7 @@ export function DashboardClient({ initialUser }: { initialUser: any }) {
               toast.error("Gagal membuat chat. Coba lagi.");
             }
           }} 
+          onBack={handleBackToSidebar}
         />
       ) : activeView === "profile" ? (
         <ProfileView
@@ -270,6 +278,7 @@ export function DashboardClient({ initialUser }: { initialUser: any }) {
           onDeletePersona={handleDeletePersona}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onLogout={handleLogout}
+          onBack={handleBackToSidebar}
         />
       ) : activeView === "groups" ? (
         <GroupsView 
@@ -278,6 +287,7 @@ export function DashboardClient({ initialUser }: { initialUser: any }) {
              handleSelectRoom(roomId);
           }} 
           onNewGroup={handleOpenNewGroup} 
+          onBack={handleBackToSidebar}
         />
       ) : (
         activeChatId && activeRoom ? (
@@ -293,9 +303,10 @@ export function DashboardClient({ initialUser }: { initialUser: any }) {
             onTriggerProactive={() => triggerProactiveNow(activeRoom.id, true)}
             isCheckingProactive={isCheckingProactive}
             onStartCall={() => startCall(activeRoom, user)}
+            onBack={handleBackToSidebar}
           />
         ) : (
-          <main className="flex-1 flex flex-col min-w-0 items-center justify-center bg-transparent p-6 text-center">
+          <main className="hidden md:flex flex-1 flex-col min-w-0 items-center justify-center bg-transparent p-6 text-center">
             <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mb-6 shadow-sm">
               <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -356,7 +367,7 @@ export function DashboardClient({ initialUser }: { initialUser: any }) {
 
             for (const nm of newMembers) {
               const system_prompt = `Karakter: ${nm.name}. Kepribadian & Latar Belakang: ${nm.characteristic}. Berinteraksi secara konsisten, manusiawi, ekspresif, dan tidak kaku seperti robot asisten.`;
-              const newAgent = await handleCreateContact(nm.name, system_prompt, nm.avatar_url);
+              const newAgent = await handleCreateContact(nm.name, system_prompt, nm.avatar_url, nm.is_public ?? true, nm.characteristic);
               if (newAgent) {
                 finalAgents.push(newAgent);
               }
@@ -378,6 +389,7 @@ export function DashboardClient({ initialUser }: { initialUser: any }) {
 
       <CallModal 
         isOpen={isCallActive}
+        isRinging={isRinging}
         roomTitle={callRoom?.title || "Panggilan Suara"}
         isGroup={callRoom?.type === "group"}
         participants={callParticipants}

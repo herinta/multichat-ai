@@ -11,45 +11,43 @@ import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
-// --- Helper to clean text for speech synthesis ---
-function cleanTextForSpeech(rawText: string): string {
-  return rawText
-    .replace(/^\[REPLY:"[^"]+"\]\s*/i, '')
-    .replace(/\[IMAGE:[^\]]+\]/gi, 'gambar terlampir')
-    .replace(/```[\s\S]*?```/g, 'ada kode program terlampir')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/https?:\/\/\S+/g, 'tautan web')
-    .replace(/[*_~#\[\]]/g, '')
-    .replace(/[😂😭💀😊🔥✨🎉❤️👍]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 // --- MessageItem Sub-component ---
 interface MessageItemProps {
   msg: Message;
   isNewest: boolean;
   theme?: string;
-  isPlayingSpeech: boolean;
-  onPlaySpeech: () => void;
   isPinned: boolean;
   onPinMessage: () => void;
   isSearchMatch?: boolean;
+  isFirstInGroup?: boolean;
+  isLastInGroup?: boolean;
+  showSenderName?: boolean;
 }
 
 function MessageItem({
   msg,
   isNewest,
   theme,
-  isPlayingSpeech,
-  onPlaySpeech,
   isPinned,
   onPinMessage,
-  isSearchMatch = false
+  isSearchMatch = false,
+  isFirstInGroup = true,
+  isLastInGroup = true,
+  showSenderName = true
 }: MessageItemProps) {
   const replyMatch = msg.content.match(/^\[REPLY:"([^"]+)"\]\s*([\s\S]*)$/i);
   const replyToContent = replyMatch ? replyMatch[1] : null;
   const actualContent = replyMatch ? replyMatch[2] : msg.content;
+
+  const formattedTime = useMemo(() => {
+    if (!msg.created_at) return '';
+    try {
+      const d = new Date(msg.created_at);
+      return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+    } catch (_) {
+      return '';
+    }
+  }, [msg.created_at]);
 
   // Check if it's a Call Session summary message
   if (msg.sender_type === "SYSTEM" || msg.content.includes('"type":"CALL_SESSION"')) {
@@ -75,7 +73,7 @@ function MessageItem({
                     <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-semibold">{durationStr}</span>
                   </h4>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {new Date(msg.created_at).toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' })}
+                    {formattedTime}
                   </p>
                 </div>
               </div>
@@ -115,6 +113,10 @@ function MessageItem({
         <Bubble
           sender={isSelf ? "You" : (msg.senderName || "AI")}
           isSelf={isSelf}
+          timestamp={formattedTime}
+          showSenderName={showSenderName}
+          isFirstInGroup={isFirstInGroup}
+          isLastInGroup={isLastInGroup}
           theme={theme}
           onPinMessage={onPinMessage}
           isPinned={isPinned}
@@ -141,10 +143,12 @@ function MessageItem({
       <Bubble
         sender={isSelf ? "You" : (msg.senderName || "AI")}
         isSelf={isSelf}
+        timestamp={formattedTime}
+        showSenderName={showSenderName}
+        isFirstInGroup={isFirstInGroup}
+        isLastInGroup={isLastInGroup}
         replyToContent={replyToContent}
         theme={theme}
-        onPlaySpeech={onPlaySpeech}
-        isPlayingSpeech={isPlayingSpeech}
         onPinMessage={onPinMessage}
         isPinned={isPinned}
         content={
@@ -203,6 +207,7 @@ interface ChatAreaProps {
   onTriggerProactive?: () => void;
   isCheckingProactive?: boolean;
   onStartCall?: () => void;
+  onBack?: () => void;
 }
 
 export function ChatArea({
@@ -216,15 +221,13 @@ export function ChatArea({
   onToggleInfoPanel,
   onTriggerProactive,
   isCheckingProactive,
-  onStartCall
+  onStartCall,
+  onBack
 }: ChatAreaProps) {
   const toast = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
-
-  // --- TTS State ---
-  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
 
   // --- Pinned Message State ---
   const [pinnedMessageId, setPinnedMessageId] = useState<string | null>(null);
@@ -254,45 +257,6 @@ export function ChatArea({
       return next;
     });
   }, [activeRoom.id, toast]);
-
-  // Handle TTS Playback for individual messages
-  const handleToggleSpeech = useCallback((msgId: string, text: string) => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      toast.error("Browser Anda tidak mendukung Text-to-Speech.");
-      return;
-    }
-
-    if (playingMessageId === msgId) {
-      window.speechSynthesis.cancel();
-      setPlayingMessageId(null);
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const cleanText = cleanTextForSpeech(text);
-    if (!cleanText) return;
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = "id-ID";
-
-    const voices = window.speechSynthesis.getVoices();
-    const idVoice = voices.find(v => v.lang.startsWith("id") || v.lang.includes("ID"));
-    if (idVoice) utterance.voice = idVoice;
-
-    utterance.onend = () => setPlayingMessageId(null);
-    utterance.onerror = () => setPlayingMessageId(null);
-
-    setPlayingMessageId(msgId);
-    window.speechSynthesis.speak(utterance);
-  }, [playingMessageId]);
-
-  // Stop speech when switching rooms
-  useEffect(() => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-      setPlayingMessageId(null);
-    }
-  }, [activeRoom.id]);
 
   useEffect(() => {
     if (!isSearchOpen) {
@@ -380,16 +344,27 @@ export function ChatArea({
     }`}>
       
       {/* Top Header */}
-      <header className="h-[72px] border-b border-gray-200 dark:border-gray-800 px-6 flex items-center justify-between shrink-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-10 sticky top-0 shadow-sm">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-inner shrink-0 ${activeRoom.type === 'group' ? 'bg-gradient-to-br from-indigo-400 to-purple-500' : 'bg-gradient-to-br from-blue-400 to-cyan-500'}`}>
+      <header className="h-[68px] sm:h-[72px] border-b border-gray-200 dark:border-gray-800 px-3 sm:px-6 flex items-center justify-between shrink-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-10 sticky top-0 shadow-sm">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="md:hidden p-1.5 -ml-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all shrink-0 cursor-pointer"
+              title="Kembali ke Daftar Chat"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-bold shadow-inner shrink-0 ${activeRoom.type === 'group' ? 'bg-gradient-to-br from-indigo-400 to-purple-500' : 'bg-gradient-to-br from-blue-400 to-cyan-500'}`}>
             {activeRoom.title.substring(0, 2).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate">
+            <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate text-sm sm:text-base">
               {activeRoom.title}
             </h2>
-            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Online</p>
+            <p className="text-[11px] sm:text-xs text-blue-600 dark:text-blue-400 font-medium">Online</p>
           </div>
         </div>
 
@@ -518,17 +493,43 @@ export function ChatArea({
         <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto">
           {messages.map((msg, idx) => {
             const isMatch = matchingMessageIds.has(msg.id);
+            const prevMsg = idx > 0 ? messages[idx - 1] : null;
+            const nextMsg = idx < messages.length - 1 ? messages[idx + 1] : null;
+
+            // Check if same sender as previous message (grouped block)
+            const isSameSenderAsPrev = !!(
+              prevMsg &&
+              prevMsg.sender_type === msg.sender_type &&
+              (msg.sender_type === 'USER' || prevMsg.sender_id === msg.sender_id || (!prevMsg.sender_id && !msg.sender_id)) &&
+              !prevMsg.content.includes('"type":"CALL_SESSION"') &&
+              !msg.content.includes('"type":"CALL_SESSION"')
+            );
+
+            // Check if same sender as next message
+            const isSameSenderAsNext = !!(
+              nextMsg &&
+              nextMsg.sender_type === msg.sender_type &&
+              (msg.sender_type === 'USER' || nextMsg.sender_id === msg.sender_id || (!nextMsg.sender_id && !msg.sender_id)) &&
+              !nextMsg.content.includes('"type":"CALL_SESSION"') &&
+              !msg.content.includes('"type":"CALL_SESSION"')
+            );
+
+            const isFirstInGroup = !isSameSenderAsPrev;
+            const isLastInGroup = !isSameSenderAsNext;
+            const showSenderName = isFirstInGroup && msg.sender_type !== "USER";
+
             return (
               <MessageItem
                 key={msg.id}
                 msg={msg}
                 isNewest={idx === messages.length - 1}
                 theme={activeRoom.theme}
-                isPlayingSpeech={playingMessageId === msg.id}
-                onPlaySpeech={() => handleToggleSpeech(msg.id, msg.content)}
                 isPinned={pinnedMessageId === msg.id}
                 onPinMessage={() => handleTogglePin(msg.id)}
                 isSearchMatch={isMatch}
+                isFirstInGroup={isFirstInGroup}
+                isLastInGroup={isLastInGroup}
+                showSenderName={showSenderName}
               />
             );
           })}

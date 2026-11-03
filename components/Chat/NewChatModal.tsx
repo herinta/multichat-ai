@@ -11,7 +11,7 @@ interface NewChatModalProps {
   onCreateChat: (
     type: "private" | "group",
     groupName: string,
-    newMembers: { name: string; characteristic: string; avatar_url?: string }[],
+    newMembers: { name: string; characteristic: string; avatar_url?: string; is_public?: boolean }[],
     selectedContactIds: string[]
   ) => void;
 }
@@ -35,6 +35,7 @@ export function NewChatModal({
   const [contactGender, setContactGender] = useState("Pria");
   const [contactTrait, setContactTrait] = useState("Santai");
   const [contactCustomPrompt, setContactCustomPrompt] = useState("");
+  const [isPublishToExplore, setIsPublishToExplore] = useState(true);
   const [isGeneratingAvatar, setIsGeneratingAvatar] = useState(false);
   const toast = useToast();
 
@@ -48,6 +49,7 @@ export function NewChatModal({
     setContactGender("Pria");
     setContactTrait("Santai");
     setContactCustomPrompt("");
+    setIsPublishToExplore(true);
     onClose();
   };
 
@@ -55,7 +57,7 @@ export function NewChatModal({
     e.preventDefault();
     if (!newChatType) return;
     
-    let membersToPass: { name: string; characteristic: string; avatar_url?: string }[] = [];
+    let membersToPass: { name: string; characteristic: string; avatar_url?: string; is_public?: boolean }[] = [];
     
     if (newChatType === "private") {
       const generatedPrompt = `Karakter: ${contactName}. Usia: ${contactAge} tahun. Gender: ${contactGender}. Sifat & Kepribadian: ${contactTrait}.${contactCustomPrompt ? ' Konteks/Latar Belakang: ' + contactCustomPrompt : ''}
@@ -63,7 +65,8 @@ Gaya Komunikasi: Konsisten dan mendalam sesuai persona ini. Berinteraksi secara 
       membersToPass = [{ 
         name: contactName, 
         characteristic: generatedPrompt,
-        avatar_url: contactAvatar || undefined
+        avatar_url: contactAvatar || undefined,
+        is_public: isPublishToExplore
       }];
     }
 
@@ -275,6 +278,20 @@ Gaya Komunikasi: Konsisten dan mendalam sesuai persona ini. Berinteraksi secara 
                   className="w-full bg-white border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none min-h-[80px]"
                   placeholder="Misal: Kamu adalah ahli IT yang suka menjelaskan sesuatu dengan analogi makanan..."
                 />
+              </div>
+
+              {/* Publish to Explore checkbox */}
+              <div className="flex items-center gap-2.5 p-3 bg-indigo-50/70 rounded-xl border border-indigo-100">
+                <input
+                  type="checkbox"
+                  id="publish_explore_check"
+                  checked={isPublishToExplore}
+                  onChange={e => setIsPublishToExplore(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+                />
+                <label htmlFor="publish_explore_check" className="text-xs text-gray-700 font-medium cursor-pointer">
+                  🌐 <strong>Publikasikan ke Explore AI</strong> (supaya bisa dilihat dan diajak ngobrol di tab Explore)
+                </label>
               </div>
             </div>
           )}

@@ -4,6 +4,7 @@ import { CallParticipantTile } from './CallParticipantTile';
 
 interface CallModalProps {
   isOpen: boolean;
+  isRinging?: boolean;
   roomTitle: string;
   isGroup: boolean;
   participants: CallParticipant[];
@@ -21,6 +22,7 @@ interface CallModalProps {
 
 export function CallModal({
   isOpen,
+  isRinging = false,
   roomTitle,
   isGroup,
   participants,
@@ -49,7 +51,14 @@ export function CallModal({
       {/* Top Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]" />
+          {isRinging ? (
+            <div className="relative flex items-center justify-center">
+              <span className="w-3.5 h-3.5 rounded-full bg-amber-400 animate-ping absolute" />
+              <div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_10px_#f59e0b]" />
+            </div>
+          ) : (
+            <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]" />
+          )}
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <span>{roomTitle}</span>
@@ -59,9 +68,15 @@ export function CallModal({
                 </span>
               )}
             </h2>
-            <p className="text-xs text-emerald-400 font-medium">
-              Suara Aktif • {formatDuration(durationSeconds)}
-            </p>
+            {isRinging ? (
+              <p className="text-xs text-amber-400 font-semibold animate-pulse">
+                📞 Memanggil... (Menunggu diangkat)
+              </p>
+            ) : (
+              <p className="text-xs text-emerald-400 font-medium">
+                Suara Aktif • {formatDuration(durationSeconds)}
+              </p>
+            )}
           </div>
         </div>
 
@@ -90,6 +105,7 @@ export function CallModal({
                 participant={{ ...p, isMuted: isParticipantMuted }}
                 isSpeaking={isSpeaking}
                 isAiThinking={p.isAi && isAiThinking && activeSpeakerId === null}
+                isRinging={isRinging}
               />
             );
           })}
@@ -99,7 +115,12 @@ export function CallModal({
       {/* Live Floating Subtitle / Transcript Bar */}
       <div className="px-6 pb-2">
         <div className="max-w-2xl mx-auto min-h-[52px] bg-black/60 border border-white/10 rounded-2xl px-5 py-3 flex items-center justify-center text-center shadow-lg backdrop-blur-md">
-          {currentSubtitle ? (
+          {isRinging ? (
+            <p className="text-xs sm:text-sm text-amber-300/90 font-medium animate-pulse flex items-center gap-2">
+              <span>🔔</span>
+              <span>Nada sambung berdering... Menghubungkan ke {participants.filter(p => p.isAi).map(p => p.name).join(', ') || 'AI'}</span>
+            </p>
+          ) : currentSubtitle ? (
             <p className="text-sm sm:text-base text-gray-100 font-medium leading-relaxed animate-in fade-in">
               <span className="text-emerald-400 font-bold mr-2">[{currentSubtitle.speakerName}]:</span>
               "{currentSubtitle.text}"

@@ -13,9 +13,10 @@ interface ContactsViewProps {
   onNewContact: () => void;
   onPublishAgent?: (agentId: string, description: string) => Promise<boolean>;
   onStartChatWithContact?: (agent: Agent) => Promise<void>;
+  onBack?: () => void;
 }
 
-export function ContactsView({ contacts, rooms, onSelectRoom, onNewContact, onPublishAgent, onStartChatWithContact }: ContactsViewProps) {
+export function ContactsView({ contacts, rooms, onSelectRoom, onNewContact, onPublishAgent, onStartChatWithContact, onBack }: ContactsViewProps) {
   const [publishingAgent, setPublishingAgent] = useState<Agent | null>(null);
   const [publishDescription, setPublishDescription] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
@@ -53,15 +54,28 @@ export function ContactsView({ contacts, rooms, onSelectRoom, onNewContact, onPu
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-gray-50/50 p-8 overflow-y-auto">
+    <div className="flex-1 flex flex-col bg-gray-50/50 p-4 sm:p-8 overflow-y-auto">
       <div className="max-w-5xl w-full mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Contacts</h1>
-            <p className="text-gray-500 mt-2">Your personalized AI personas.</p>
+        <div className="flex items-center justify-between mb-6 sm:mb-8">
+          <div className="flex items-center gap-3">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all cursor-pointer"
+                title="Kembali ke Daftar Chat"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">My Contacts</h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 text-xs sm:text-sm">Your personalized AI personas.</p>
+            </div>
           </div>
-          <Button onClick={onNewContact} variant="primary" className="shadow-sm">
-            + Add New Contact
+          <Button onClick={onNewContact} variant="primary" className="shadow-sm text-xs sm:text-sm">
+            + New Contact
           </Button>
         </div>
 
